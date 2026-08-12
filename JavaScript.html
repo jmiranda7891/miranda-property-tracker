@@ -14,6 +14,7 @@
       filterCountry: 'Country', filterStatus: 'Status', filterType: 'Type',
       filterSearchPlaceholder: 'Search reference, address, owner, city…',
       showArchived: 'Show archived', all: 'All', mexico: 'Mexico', usa: 'USA',
+      viewCards: 'Cards', viewList: 'List', viewOnMaps: 'View on Maps ↗',
       totalProperties: 'Properties', totalValue: 'Est. value (USD)', mxTitled: 'MX – clear title', mxEjido: 'MX – ejido/pending',
       close: 'Close', edit: 'Edit', archive: 'Archive', unarchive: 'Unarchive', deleteBtn: 'Delete', save: 'Save', cancel: 'Cancel',
       identification: 'Identification', location: 'Location', statusValue: 'Status & value',
@@ -49,6 +50,7 @@
       filterCountry: 'País', filterStatus: 'Estatus', filterType: 'Tipo',
       filterSearchPlaceholder: 'Buscar referencia, dirección, propietario, ciudad…',
       showArchived: 'Mostrar archivadas', all: 'Todos', mexico: 'México', usa: 'EE. UU.',
+      viewCards: 'Tarjetas', viewList: 'Lista', viewOnMaps: 'Ver en Maps ↗',
       totalProperties: 'Propiedades', totalValue: 'Valor est. (USD)', mxTitled: 'MX – escriturado', mxEjido: 'MX – ejido/pendiente',
       close: 'Cerrar', edit: 'Editar', archive: 'Archivar', unarchive: 'Restaurar', deleteBtn: 'Eliminar', save: 'Guardar', cancel: 'Cancelar',
       identification: 'Identificación', location: 'Ubicación', statusValue: 'Estatus y valor',
@@ -83,7 +85,9 @@
     email: '', role: 'none', build: '',
     properties: [],
     lang: (localStorage.getItem('mpt_lang') || 'es'),
+    view: (localStorage.getItem('mpt_view') || 'cards'),
     filters: { country: '', status: '', tipo: '', q: '', showArchived: false },
+    sort: { key: null, dir: 'asc' },
     modal: null,
     adminTab: 'users',
     adminUsers: null,
@@ -155,6 +159,26 @@
     });
   }
 
+  // Shared by both views, so a sort chosen in List view silently carries over to Cards too.
+  // Blank/missing values always sort last, regardless of direction.
+  function sortProperties(list) {
+    var s = STATE.sort;
+    if (!s.key) return list;
+    var key = s.key, dir = s.dir === 'desc' ? -1 : 1;
+    var arr = list.slice();
+    arr.sort(function (a, b) {
+      var av = a[key], bv = b[key];
+      var aBlank = av == null || av === '';
+      var bBlank = bv == null || bv === '';
+      if (aBlank && bBlank) return 0;
+      if (aBlank) return 1;
+      if (bBlank) return -1;
+      if (typeof av === 'number' || typeof bv === 'number') return (Number(av) - Number(bv)) * dir;
+      return String(av).localeCompare(String(bv), undefined, { sensitivity: 'base' }) * dir;
+    });
+    return arr;
+  }
+
   function computeSummary() {
     var active = STATE.properties.filter(function (p) { return !p.archived; });
     var mx = active.filter(function (p) { return p.countryCode === 'MX'; });
@@ -177,7 +201,7 @@
         '<p style="color:var(--text-muted);font-size:.85rem">' + esc(STATE.email) + '</p></div></div>';
       return;
     }
-    var html = renderTopbar() + '<div class="main">' + renderSummary() + renderFilters() + renderGrid() + '</div>';
+    var html = renderTopbar() + '<div class="main">' + renderSummary() + renderFilters() + renderProperties() + '</div>';
     if (STATE.modal) html += renderModal();
     if (STATE.toast) html += '<div class="toast' + (STATE.toast.isError ? ' error' : '') + '">' + esc(STATE.toast.msg) + '</div>';
     app.innerHTML = html;
@@ -194,6 +218,10 @@
       '<button class="' + (STATE.lang === 'en' ? 'active' : '') + '" onclick="MPT.setLang(\'en\')">EN</button>' +
       '</div>' +
       (STATE.role !== 'none' ? '' +
+        '<div class="lang-toggle">' +
+        '<button class="' + (STATE.view === 'cards' ? 'active' : '') + '" onclick="MPT.setView(\'cards\')">' + esc(t('viewCards')) + '</button>' +
+        '<button class="' + (STATE.view === 'list' ? 'active' : '') + '" onclick="MPT.setView(\'list\')">' + esc(t('viewList')) + '</button>' +
+        '</div>' +
         '<button class="btn btn-ghost" onclick="MPT.openAddForm()">+ ' + esc(t('addProperty')) + '</button>' +
         '<button class="btn btn-ghost" onclick="MPT.doExport(false)">' + esc(t('exportFiltered')) + '</button>' +
         '<button class="btn btn-ghost" onclick="MPT.doExport(true)">' + esc(t('exportAll')) + '</button>' +
@@ -233,23 +261,63 @@
       '</div>';
   }
 
-  function renderGrid() {
-    var list = filteredProperties();
+  function renderProperties() {
+    var list = sortProperties(filteredProperties());
     if (!list.length) return '<div class="empty-state">' + esc(t('noProperties')) + '</div>';
-    return '<div class="card-grid">' + list.map(renderCard).join('') + '</div>';
+    return STATE.view === 'list' ? renderListView(list) : '<div class="card-grid">' + list.map(renderCard).join('') + '</div>';
   }
 
   function renderCard(p) {
     var flag = p.precioEstimadoIsPlaceholder ? '<div class="flag">⚠ ' + esc(t('priceIsPlaceholder')) + '</div>' : '';
+    var accentClass = 'accent-' + (p.archived ? 'sold' : (p.status || 'unspecified'));
     return '' +
-      '<div class="prop-card' + (p.archived ? ' archived' : '') + '" onclick="MPT.openDetail(\'' + p.id + '\')">' +
+      '<div class="prop-card ' + accentClass + (p.archived ? ' archived' : '') + '" onclick="MPT.openDetail(\'' + p.id + '\')">' +
+      '<span class="chip-country">' + esc(p.countryCode === 'US' ? 'US' : 'MX') + '</span>' +
       '<span class="badge badge-' + esc(p.status) + '">' + esc(statusLabel(p.status)) + '</span>' +
       (p.archived ? ' <span class="badge badge-sold">' + esc(t('archivedBadge')) + '</span>' : '') +
       '<h3>' + esc(p.referencia || p.tipo) + '</h3>' +
-      '<div class="sub">' + esc(countryLabel(p.countryCode)) + ' · ' + esc(p.tipo) + ' · ' + esc(p.ciudad) + ', ' + esc(p.estado) + '</div>' +
+      '<div class="sub">' + esc(p.tipo) + ' · ' + esc(p.ciudad) + ', ' + esc(p.estado) + '</div>' +
       '<div class="price">' + fmtMoney(p.precioEstimadoUSD) + '</div>' +
       flag +
+      '<div class="card-footer"><a class="card-maps-link" href="' + mapsLink(p) + '" target="_blank" onclick="event.stopPropagation()">' + esc(t('viewOnMaps')) + '</a></div>' +
       '</div>';
+  }
+
+  // ============================ List/table view ============================
+  var LIST_COLUMNS = [
+    { key: 'referencia', labelKey: 'reference' },
+    { key: 'tipo', labelKey: 'type' },
+    { key: 'countryCode', labelKey: 'filterCountry' },
+    { key: 'ciudad', labelKey: 'city' },
+    { key: 'estado', labelKey: 'state' },
+    { key: 'propietario', labelKey: 'owners' },
+    { key: 'status', labelKey: 'status' },
+    { key: 'precioEstimadoUSD', labelKey: 'estimatedPrice', num: true },
+    { key: 'escrituras', labelKey: 'deedStatus' },
+    { key: 'propEscriturado', labelKey: 'titledTo' },
+    { key: 'propuestaTraspaso', labelKey: 'successionPlan' },
+    { key: 'pin', labelKey: 'parcelPin' },
+    { key: 'observacionesRaw', labelKey: 'notes', sortable: false }
+  ];
+
+  function renderListView(list) {
+    var thead = LIST_COLUMNS.map(function (c) {
+      if (c.sortable === false) return '<th>' + esc(t(c.labelKey)) + '</th>';
+      var arrow = STATE.sort.key === c.key ? ' <span class="sort-arrow">' + (STATE.sort.dir === 'asc' ? '▲' : '▼') + '</span>' : '';
+      return '<th class="sortable" onclick="MPT.setSort(\'' + c.key + '\')">' + esc(t(c.labelKey)) + arrow + '</th>';
+    }).join('');
+    var rows = list.map(function (p) {
+      var cells = LIST_COLUMNS.map(function (c) {
+        var v;
+        if (c.key === 'status') v = statusLabel(p.status);
+        else if (c.key === 'countryCode') v = countryLabel(p.countryCode);
+        else if (c.key === 'precioEstimadoUSD') v = fmtMoney(p.precioEstimadoUSD);
+        else v = p[c.key] || '';
+        return '<td class="' + (c.num ? 'num' : '') + '">' + esc(v) + '</td>';
+      }).join('');
+      return '<tr class="' + (p.archived ? 'archived' : '') + '" onclick="MPT.openDetail(\'' + p.id + '\')">' + cells + '</tr>';
+    }).join('');
+    return '<div class="table-scroll"><table class="prop-table"><thead><tr>' + thead + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
   }
 
   // ============================ Modal shell ============================
@@ -419,6 +487,18 @@
 
   MPT.setFilter = function (key, val) {
     STATE.filters[key] = val;
+    render();
+  };
+
+  MPT.setView = function (view) {
+    STATE.view = view;
+    localStorage.setItem('mpt_view', view);
+    render();
+  };
+
+  MPT.setSort = function (key) {
+    if (STATE.sort.key === key) STATE.sort.dir = STATE.sort.dir === 'asc' ? 'desc' : 'asc';
+    else { STATE.sort.key = key; STATE.sort.dir = 'asc'; }
     render();
   };
 

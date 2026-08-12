@@ -102,16 +102,34 @@
     display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: .9rem;
   }
   .prop-card {
-    background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius);
-    padding: 1rem; box-shadow: var(--shadow); cursor: pointer; transition: box-shadow .15s, transform .15s;
+    background: var(--card-bg); border: 1px solid var(--border); border-left: 4px solid var(--border);
+    border-radius: var(--radius); padding: 1rem; box-shadow: var(--shadow);
+    cursor: pointer; transition: box-shadow .15s, transform .15s;
   }
   .prop-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,.1); transform: translateY(-1px); }
   .prop-card.archived { opacity: .6; }
-  .prop-card h3 { margin: 0 0 .2rem; font-size: 1rem; color: var(--navy); }
+  .prop-card.accent-in_use { border-left-color: var(--ok); }
+  .prop-card.accent-for_sale, .prop-card.accent-in_process { border-left-color: var(--warn); }
+  .prop-card.accent-ejido { border-left-color: #6a3d8f; }
+  .prop-card.accent-family_matter { border-left-color: #a13a63; }
+  .prop-card.accent-investment { border-left-color: #2a5fa0; }
+  .prop-card.accent-held_by_company { border-left-color: #47535c; }
+  .prop-card.accent-sold, .prop-card.accent-unspecified { border-left-color: #999; }
+  .prop-card h3 { margin: .35rem 0 .2rem; font-size: 1.02rem; color: var(--navy); }
   .prop-card .sub { color: var(--text-muted); font-size: .82rem; margin-bottom: .5rem; }
-  .prop-card .price { font-weight: 700; color: var(--navy); margin-bottom: .4rem; }
+  .prop-card .price { font-weight: 700; font-size: 1.15rem; color: var(--navy); margin-bottom: .4rem; }
   .prop-card .flag { color: var(--warn); font-size: .75rem; }
-  .country-flag { font-size: .8rem; margin-right: .3rem; }
+  .chip-country {
+    display: inline-block; font-size: .65rem; font-weight: 700; letter-spacing: .03em;
+    color: var(--text-muted); border: 1px solid var(--border); border-radius: 4px;
+    padding: .05rem .35rem; margin-right: .35rem; vertical-align: middle;
+  }
+  .card-footer {
+    margin-top: .6rem; padding-top: .5rem; border-top: 1px dashed var(--border);
+    display: flex; justify-content: flex-end;
+  }
+  .card-maps-link { font-size: .78rem; color: var(--navy-light); text-decoration: none; font-weight: 600; }
+  .card-maps-link:hover { text-decoration: underline; }
 
   .badge {
     display: inline-block; font-size: .68rem; font-weight: 700; text-transform: uppercase;
@@ -188,6 +206,26 @@
   .add-user-form { display: flex; gap: .5rem; margin-bottom: 1rem; flex-wrap: wrap; }
   .add-user-form input, .add-user-form select { padding: .4rem .6rem; border: 1px solid var(--border); border-radius: 6px; }
 
+  .table-scroll {
+    overflow-x: auto; background: var(--card-bg); border: 1px solid var(--border);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+  }
+  table.prop-table { width: 100%; border-collapse: collapse; font-size: .83rem; white-space: nowrap; }
+  table.prop-table thead th {
+    position: sticky; top: 0; background: #f0eee8; color: var(--text-muted);
+    font-size: .7rem; text-transform: uppercase; letter-spacing: .03em;
+    padding: .55rem .65rem; text-align: left; border-bottom: 1px solid var(--border);
+  }
+  table.prop-table thead th.sortable { cursor: pointer; user-select: none; }
+  table.prop-table thead th.sortable:hover { background: #e7e3d8; }
+  table.prop-table thead th .sort-arrow { margin-left: .25rem; opacity: .8; }
+  table.prop-table tbody td { padding: .45rem .65rem; border-bottom: 1px solid var(--border); }
+  table.prop-table tbody td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  table.prop-table tbody tr { cursor: pointer; }
+  table.prop-table tbody tr:nth-child(even) { background: #faf9f6; }
+  table.prop-table tbody tr:hover { background: #f0eee8; }
+  table.prop-table tbody tr.archived { opacity: .55; }
+
   .toast {
     position: fixed; bottom: 1.25rem; left: 50%; transform: translateX(-50%);
     background: var(--navy); color: #fff; padding: .6rem 1.1rem; border-radius: 999px;
@@ -200,6 +238,7 @@
     .topbar h1 { display: none; }
     .main { padding: .8rem; }
     .card-grid { grid-template-columns: 1fr; }
+    .table-scroll { -webkit-overflow-scrolling: touch; }
     .modal-backdrop { padding: 0; align-items: stretch; }
     .modal { max-width: none; width: 100%; min-height: 100vh; border-radius: 0; }
   }

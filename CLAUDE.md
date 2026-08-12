@@ -3,7 +3,11 @@
 Portable project memory. Chat history does NOT travel between sessions — this file + the repo are the only bridge. Open this first on any machine or in any new session.
 
 ## What this is
-A private estate-planning web app listing the Miranda family's ~40 real estate properties across Mexico and the Chicago area — unified list, Google Maps links, one-time AI-researched area context + value-estimate commentary per property, an EN/ES toggle, a Google Sheet export, and an in-app admin panel for managing who can access it. Built for Jorge (jorge@orderexpress.com) as a personal/family tool — not a client product, not related to the sibling `clpr-social-media` (CL Social Media App) repo, though it deliberately reuses that repo's proven Apps Script patterns.
+A private estate-planning web app listing the Miranda family's ~40 real estate properties across Mexico and the Chicago area — unified list (cards or a sortable Excel-like table), Google Maps links, one-time AI-researched area context + value-estimate commentary per property, an EN/ES toggle, a Google Sheet export, and an in-app admin panel for managing who can access it. Built for Jorge (jorge@orderexpress.com) as a personal/family tool — not a client product, not related to the sibling `clpr-social-media` (CL Social Media App) repo, though it deliberately reuses that repo's proven Apps Script patterns.
+
+## Current status
+- **v1** (version 1/2 on the deployment): initial build — unified property list, Maps links, bilingual research/value text, EN/ES toggle, export, admin-managed access.
+- **v1.1** (version 3, current): added a second view — a sortable, Excel-like table (`STATE.view`, `renderListView()`, `sortProperties()` in `JavaScript.html`) alongside the original card grid, plus a "subtle/professional" card refresh (colored left-border accent by status, a compact MX/US country chip, a one-click "View on Maps" link on each card). Purely client-side — no server or data-schema changes. 75 tests passing (up from 67).
 
 ## Hosting / accounts
 - Lives under the **OE (Order Express)** Google Workspace account, domain `orderexpress.com`.

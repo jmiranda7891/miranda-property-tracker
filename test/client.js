@@ -83,6 +83,54 @@ module.exports = async function run(t) {
     await page.close();
   }
 
+  t.group('list view + sorting');
+  {
+    const page = await browser.newPage();
+    t.watch(page);
+    const url = writePage('client-list.html', buildPage({ apiSource: apiSourceFor('admin') }));
+    await page.goto(url);
+    await page.waitForTimeout(150);
+    t.check('cards view is the default', (await page.locator('.prop-card').count()) === 2 && (await page.locator('table.prop-table').count()) === 0);
+
+    await page.click('button:has-text("Lista"), button:has-text("List")');
+    await page.waitForTimeout(50);
+    t.check('switching to List view shows a table row per filtered property', (await page.locator('table.prop-table tbody tr').count()) === 2);
+    t.check('switching to List view hides the card grid', (await page.locator('.prop-card').count()) === 0);
+
+    const refHeader = 'table.prop-table th:has-text("Referencia"), table.prop-table th:has-text("Reference")';
+    const firstCellText = async () => (await page.locator('table.prop-table tbody tr').first().locator('td').first().textContent()).trim();
+    await page.click(refHeader);
+    await page.waitForTimeout(50);
+    const ascFirst = await firstCellText();
+    await page.click(refHeader);
+    await page.waitForTimeout(50);
+    const descFirst = await firstCellText();
+    t.check('clicking a sortable column header once, then again, reverses row order', ascFirst !== descFirst, ascFirst + ' / ' + descFirst);
+    await page.click(refHeader);
+    await page.waitForTimeout(50);
+    const backToAscFirst = await firstCellText();
+    t.check('a third click returns to the original ascending order', backToAscFirst === ascFirst, ascFirst + ' / ' + backToAscFirst);
+
+    await page.click('button:has-text("Tarjetas"), button:has-text("Cards")');
+    await page.waitForTimeout(50);
+    t.check('switching back to Cards view restores the card grid', (await page.locator('.prop-card').count()) === 2);
+    await page.close();
+  }
+
+  t.group('card polish');
+  {
+    const page = await browser.newPage();
+    t.watch(page);
+    const url = writePage('client-cards.html', buildPage({ apiSource: apiSourceFor('admin') }));
+    await page.goto(url);
+    await page.waitForTimeout(150);
+    const borderColors = await page.locator('.prop-card').evaluateAll((els) => els.map((el) => getComputedStyle(el).borderLeftColor));
+    t.check('cards with different statuses get different accent border colors', borderColors[0] !== borderColors[1], borderColors.join(' / '));
+    const mapsHref = await page.locator('.card-maps-link').first().getAttribute('href');
+    t.check('each card has a working Maps quick-link', mapsHref && mapsHref.indexOf('google.com/maps') >= 0 && mapsHref.indexOf('Maravatio') >= 0, mapsHref);
+    await page.close();
+  }
+
   t.group('EN/ES toggle: chrome switches, raw data does not');
   {
     const page = await browser.newPage();
