@@ -1,0 +1,12 @@
+{
+  "name": "miranda-property-tracker",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Miranda Family Property Tracker - Apps Script web app. Nothing here is deployed; see .claspignore.",
+  "scripts": {
+    "test": "node test/all.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.47.0"
+  }
+}

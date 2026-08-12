@@ -1,0 +1,514 @@
+<script>
+(function () {
+  'use strict';
+
+  // ============================ i18n ============================
+  var I18N = {
+    en: {
+      appTitle: 'Miranda Family Property Tracker',
+      loading: 'Loading…',
+      accessDeniedTitle: 'No access yet',
+      accessDeniedBody: 'Your account is not on the authorized list for this app. Ask an admin to add your email from the Admin panel.',
+      admin: 'Admin', roleAdmin: 'Admin', roleMember: 'Member',
+      exportAll: 'Export all', exportFiltered: 'Export filtered', addProperty: 'Add property',
+      filterCountry: 'Country', filterStatus: 'Status', filterType: 'Type',
+      filterSearchPlaceholder: 'Search reference, address, owner, city…',
+      showArchived: 'Show archived', all: 'All', mexico: 'Mexico', usa: 'USA',
+      totalProperties: 'Properties', totalValue: 'Est. value (USD)', mxTitled: 'MX – clear title', mxEjido: 'MX – ejido/pending',
+      close: 'Close', edit: 'Edit', archive: 'Archive', unarchive: 'Unarchive', deleteBtn: 'Delete', save: 'Save', cancel: 'Cancel',
+      identification: 'Identification', location: 'Location', statusValue: 'Status & value',
+      mexicoOnly: 'Mexico – deed & succession', usaOnly: 'USA – parcel',
+      research: 'Area research', valueEstimateLbl: 'Value estimate',
+      createdBy: 'Added by', updatedBy: 'Last updated by', openInMaps: 'Open in Google Maps',
+      reference: 'Reference', type: 'Type', owners: 'Owner(s)', address: 'Address', city: 'City', state: 'State', zip: 'Zip',
+      notes: 'Notes', status: 'Status', estimatedPrice: 'Estimated price (USD)', priceIsPlaceholder: 'Placeholder value, not a real estimate',
+      deedStatus: 'Deed status (Escrituras)', titledTo: 'Titled to', successionPlan: 'Succession / transfer plan', parcelPin: 'Parcel PIN',
+      archivedYes: 'Archived', archivedBadge: 'ARCHIVED',
+      confirmArchivePrompt: 'Reason for archiving this property (optional):',
+      confirmUnarchive: 'Restore this property from the archive?',
+      confirmDeleteTitle: 'Delete property', confirmDeleteBody: 'This permanently deletes the property record. A copy is kept in the audit log, but this cannot be undone from the app. Type the reference name to confirm:',
+      newPropertyTitle: 'Add property', editPropertyTitle: 'Edit property',
+      users: 'Users', auditLog: 'Audit log', addUser: 'Add user', email: 'Email', role: 'Role',
+      addedBy: 'Added by', addedAt: 'Added at', remove: 'Remove',
+      noProperties: 'No properties match these filters.',
+      errorGeneric: 'Something went wrong: ',
+      toastSaved: 'Saved', toastArchived: 'Archived', toastUnarchived: 'Restored', toastDeleted: 'Deleted', toastExported: 'Export ready – opening in a new tab',
+      toastUserAdded: 'User saved', toastUserRemoved: 'User removed',
+      requiredNote: 'Reference and address are required.',
+      s_in_use: 'In use', s_for_sale: 'For sale', s_in_process: 'In process', s_ejido: 'Ejido land',
+      s_family_matter: 'Family matter', s_investment: 'Investment', s_held_by_company: 'Held by company',
+      s_sold: 'Sold', s_unspecified: 'Unspecified'
+    },
+    es: {
+      appTitle: 'Registro de Propiedades – Familia Miranda',
+      loading: 'Cargando…',
+      accessDeniedTitle: 'Aún sin acceso',
+      accessDeniedBody: 'Tu cuenta no está en la lista autorizada de esta app. Pide a un administrador que agregue tu correo desde el panel de Admin.',
+      admin: 'Admin', roleAdmin: 'Administrador', roleMember: 'Miembro',
+      exportAll: 'Exportar todo', exportFiltered: 'Exportar filtrado', addProperty: 'Agregar propiedad',
+      filterCountry: 'País', filterStatus: 'Estatus', filterType: 'Tipo',
+      filterSearchPlaceholder: 'Buscar referencia, dirección, propietario, ciudad…',
+      showArchived: 'Mostrar archivadas', all: 'Todos', mexico: 'México', usa: 'EE. UU.',
+      totalProperties: 'Propiedades', totalValue: 'Valor est. (USD)', mxTitled: 'MX – escriturado', mxEjido: 'MX – ejido/pendiente',
+      close: 'Cerrar', edit: 'Editar', archive: 'Archivar', unarchive: 'Restaurar', deleteBtn: 'Eliminar', save: 'Guardar', cancel: 'Cancelar',
+      identification: 'Identificación', location: 'Ubicación', statusValue: 'Estatus y valor',
+      mexicoOnly: 'México – escrituras y sucesión', usaOnly: 'EE. UU. – parcela',
+      research: 'Investigación de la zona', valueEstimateLbl: 'Estimación de valor',
+      createdBy: 'Agregado por', updatedBy: 'Última actualización por', openInMaps: 'Abrir en Google Maps',
+      reference: 'Referencia', type: 'Tipo', owners: 'Propietario(s)', address: 'Dirección', city: 'Ciudad', state: 'Estado', zip: 'C.P.',
+      notes: 'Observaciones', status: 'Estatus', estimatedPrice: 'Precio estimado (USD)', priceIsPlaceholder: 'Valor de relleno, no es una estimación real',
+      deedStatus: 'Escrituras', titledTo: 'Propietario escriturado', successionPlan: 'Propuesta de traspaso', parcelPin: 'PIN de parcela',
+      archivedYes: 'Archivada', archivedBadge: 'ARCHIVADA',
+      confirmArchivePrompt: 'Motivo para archivar esta propiedad (opcional):',
+      confirmUnarchive: '¿Restaurar esta propiedad del archivo?',
+      confirmDeleteTitle: 'Eliminar propiedad', confirmDeleteBody: 'Esto elimina permanentemente el registro. Se guarda una copia en el registro de auditoría, pero no se puede deshacer desde la app. Escribe el nombre de referencia para confirmar:',
+      newPropertyTitle: 'Agregar propiedad', editPropertyTitle: 'Editar propiedad',
+      users: 'Usuarios', auditLog: 'Registro de auditoría', addUser: 'Agregar usuario', email: 'Correo', role: 'Rol',
+      addedBy: 'Agregado por', addedAt: 'Fecha de alta', remove: 'Quitar',
+      noProperties: 'Ningúna propiedad coincide con estos filtros.',
+      errorGeneric: 'Algo salió mal: ',
+      toastSaved: 'Guardado', toastArchived: 'Archivada', toastUnarchived: 'Restaurada', toastDeleted: 'Eliminada', toastExported: 'Exportación lista – abriendo en una pestaña nueva',
+      toastUserAdded: 'Usuario guardado', toastUserRemoved: 'Usuario eliminado',
+      requiredNote: 'Referencia y dirección son obligatorias.',
+      s_in_use: 'En uso', s_for_sale: 'En venta', s_in_process: 'En proceso', s_ejido: 'Terreno ejidal',
+      s_family_matter: 'Asunto familiar', s_investment: 'Inversión', s_held_by_company: 'A nombre de empresa',
+      s_sold: 'Vendida', s_unspecified: 'Sin especificar'
+    }
+  };
+
+  var STATUSES = ['in_use', 'for_sale', 'in_process', 'ejido', 'family_matter', 'investment', 'held_by_company', 'sold', 'unspecified'];
+  var TIPOS = ['Casa', 'Departamento', 'Edificio', 'Local', 'Oficina', 'Terreno', 'Otro'];
+
+  var STATE = {
+    email: '', role: 'none', build: '',
+    properties: [],
+    lang: (localStorage.getItem('mpt_lang') || 'es'),
+    filters: { country: '', status: '', tipo: '', q: '', showArchived: false },
+    modal: null,
+    adminTab: 'users',
+    adminUsers: null,
+    adminAudit: null,
+    toast: null,
+    busy: false
+  };
+
+  function t(key) { var d = I18N[STATE.lang] || I18N.en; return d[key] != null ? d[key] : key; }
+  function statusLabel(s) { return t('s_' + (s || 'unspecified')); }
+  function countryLabel(c) { return c === 'US' ? t('usa') : t('mexico'); }
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function fmtMoney(n) {
+    if (n == null || n === '' || isNaN(n)) return '–';
+    return '$' + Math.round(Number(n)).toLocaleString('en-US');
+  }
+
+  function mapsLink(p) {
+    var q = [p.direccion, p.ciudad, p.estado, p.countryCode === 'US' ? 'USA' : 'Mexico'].filter(function (x) { return !!x; }).join(', ');
+    return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
+  }
+
+  // ============================ Boot ============================
+  function boot() {
+    google.script.run.withSuccessHandler(onBoot).withFailureHandler(onFatal).getBootstrap();
+  }
+  function onBoot(b) {
+    STATE.email = b.email; STATE.role = b.role; STATE.build = b.build;
+    STATE.properties = b.properties || [];
+    render();
+  }
+  function onFatal(err) {
+    document.getElementById('app').innerHTML =
+      '<div class="center-msg">' + esc((err && err.message) || String(err)) + '</div>';
+  }
+
+  function refreshProperties(list) { STATE.properties = list || []; }
+
+  function toast(msg, isError) {
+    STATE.toast = { msg: msg, isError: !!isError };
+    render();
+    setTimeout(function () { STATE.toast = null; render(); }, 2600);
+  }
+
+  function onError(err) {
+    STATE.busy = false;
+    toast(t('errorGeneric') + ((err && err.message) || String(err)), true);
+  }
+
+  // ============================ Filtering & summary ============================
+  function filteredProperties() {
+    return STATE.properties.filter(function (p) {
+      if (!STATE.filters.showArchived && p.archived) return false;
+      if (STATE.filters.country && p.countryCode !== STATE.filters.country) return false;
+      if (STATE.filters.status && p.status !== STATE.filters.status) return false;
+      if (STATE.filters.tipo && p.tipo !== STATE.filters.tipo) return false;
+      if (STATE.filters.q) {
+        var q = STATE.filters.q.toLowerCase();
+        var hay = [p.referencia, p.direccion, p.propietario, p.ciudad].join(' ').toLowerCase();
+        if (hay.indexOf(q) === -1) return false;
+      }
+      return true;
+    });
+  }
+
+  function computeSummary() {
+    var active = STATE.properties.filter(function (p) { return !p.archived; });
+    var mx = active.filter(function (p) { return p.countryCode === 'MX'; });
+    var us = active.filter(function (p) { return p.countryCode === 'US'; });
+    var totalValue = active.reduce(function (sum, p) {
+      if (p.precioEstimadoIsPlaceholder || p.precioEstimadoUSD == null) return sum;
+      return sum + Number(p.precioEstimadoUSD || 0);
+    }, 0);
+    var mxTitled = mx.filter(function (p) { return /^s/i.test(p.escrituras || ''); }).length;
+    var mxEjido = mx.filter(function (p) { return !/^s/i.test(p.escrituras || ''); }).length;
+    return { total: active.length, mx: mx.length, us: us.length, totalValue: totalValue, mxTitled: mxTitled, mxEjido: mxEjido };
+  }
+
+  // ============================ Render ============================
+  function render() {
+    var app = document.getElementById('app');
+    if (STATE.role === 'none') {
+      app.innerHTML = renderTopbar() + '<div class="center-msg"><div>' +
+        '<h2>' + esc(t('accessDeniedTitle')) + '</h2><p>' + esc(t('accessDeniedBody')) + '</p>' +
+        '<p style="color:var(--text-muted);font-size:.85rem">' + esc(STATE.email) + '</p></div></div>';
+      return;
+    }
+    var html = renderTopbar() + '<div class="main">' + renderSummary() + renderFilters() + renderGrid() + '</div>';
+    if (STATE.modal) html += renderModal();
+    if (STATE.toast) html += '<div class="toast' + (STATE.toast.isError ? ' error' : '') + '">' + esc(STATE.toast.msg) + '</div>';
+    app.innerHTML = html;
+  }
+
+  function renderTopbar() {
+    return '' +
+      '<div class="topbar">' +
+      '<h1>' + esc(t('appTitle')) + '</h1>' +
+      '<div class="spacer"></div>' +
+      (STATE.role !== 'none' ? '<span class="who">' + esc(STATE.email) + '</span><span class="role-badge">' + esc(STATE.role === 'admin' ? t('roleAdmin') : t('roleMember')) + '</span>' : '') +
+      '<div class="lang-toggle">' +
+      '<button class="' + (STATE.lang === 'es' ? 'active' : '') + '" onclick="MPT.setLang(\'es\')">ES</button>' +
+      '<button class="' + (STATE.lang === 'en' ? 'active' : '') + '" onclick="MPT.setLang(\'en\')">EN</button>' +
+      '</div>' +
+      (STATE.role !== 'none' ? '' +
+        '<button class="btn btn-ghost" onclick="MPT.openAddForm()">+ ' + esc(t('addProperty')) + '</button>' +
+        '<button class="btn btn-ghost" onclick="MPT.doExport(false)">' + esc(t('exportFiltered')) + '</button>' +
+        '<button class="btn btn-ghost" onclick="MPT.doExport(true)">' + esc(t('exportAll')) + '</button>' +
+        (STATE.role === 'admin' ? '<button class="btn btn-ghost" onclick="MPT.openAdmin()">⚙ ' + esc(t('admin')) + '</button>' : '')
+        : '') +
+      '</div>';
+  }
+
+  function renderSummary() {
+    var s = computeSummary();
+    function card(num, lbl) { return '<div class="stat-card"><div class="num">' + esc(num) + '</div><div class="lbl">' + esc(lbl) + '</div></div>'; }
+    return '<div class="summary-row">' +
+      card(s.total, t('totalProperties')) +
+      card(fmtMoney(s.totalValue), t('totalValue')) +
+      card(s.mx, t('mexico')) +
+      card(s.us, t('usa')) +
+      card(s.mxTitled, t('mxTitled')) +
+      card(s.mxEjido, t('mxEjido')) +
+      '</div>';
+  }
+
+  function renderFilters() {
+    var f = STATE.filters;
+    var statusOpts = STATUSES.map(function (s) { return '<option value="' + s + '"' + (f.status === s ? ' selected' : '') + '>' + esc(statusLabel(s)) + '</option>'; }).join('');
+    var tipoOpts = TIPOS.map(function (tp) { return '<option value="' + esc(tp) + '"' + (f.tipo === tp ? ' selected' : '') + '>' + esc(tp) + '</option>'; }).join('');
+    return '' +
+      '<div class="filter-bar">' +
+      '<select onchange="MPT.setFilter(\'country\', this.value)">' +
+      '<option value="">' + esc(t('filterCountry')) + ': ' + esc(t('all')) + '</option>' +
+      '<option value="MX"' + (f.country === 'MX' ? ' selected' : '') + '>' + esc(t('mexico')) + '</option>' +
+      '<option value="US"' + (f.country === 'US' ? ' selected' : '') + '>' + esc(t('usa')) + '</option>' +
+      '</select>' +
+      '<select onchange="MPT.setFilter(\'status\', this.value)"><option value="">' + esc(t('filterStatus')) + ': ' + esc(t('all')) + '</option>' + statusOpts + '</select>' +
+      '<select onchange="MPT.setFilter(\'tipo\', this.value)"><option value="">' + esc(t('filterType')) + ': ' + esc(t('all')) + '</option>' + tipoOpts + '</select>' +
+      '<input type="text" placeholder="' + esc(t('filterSearchPlaceholder')) + '" value="' + esc(f.q) + '" oninput="MPT.setFilter(\'q\', this.value)">' +
+      '<label class="chk"><input type="checkbox" ' + (f.showArchived ? 'checked' : '') + ' onchange="MPT.setFilter(\'showArchived\', this.checked)"> ' + esc(t('showArchived')) + '</label>' +
+      '</div>';
+  }
+
+  function renderGrid() {
+    var list = filteredProperties();
+    if (!list.length) return '<div class="empty-state">' + esc(t('noProperties')) + '</div>';
+    return '<div class="card-grid">' + list.map(renderCard).join('') + '</div>';
+  }
+
+  function renderCard(p) {
+    var flag = p.precioEstimadoIsPlaceholder ? '<div class="flag">⚠ ' + esc(t('priceIsPlaceholder')) + '</div>' : '';
+    return '' +
+      '<div class="prop-card' + (p.archived ? ' archived' : '') + '" onclick="MPT.openDetail(\'' + p.id + '\')">' +
+      '<span class="badge badge-' + esc(p.status) + '">' + esc(statusLabel(p.status)) + '</span>' +
+      (p.archived ? ' <span class="badge badge-sold">' + esc(t('archivedBadge')) + '</span>' : '') +
+      '<h3>' + esc(p.referencia || p.tipo) + '</h3>' +
+      '<div class="sub">' + esc(countryLabel(p.countryCode)) + ' · ' + esc(p.tipo) + ' · ' + esc(p.ciudad) + ', ' + esc(p.estado) + '</div>' +
+      '<div class="price">' + fmtMoney(p.precioEstimadoUSD) + '</div>' +
+      flag +
+      '</div>';
+  }
+
+  // ============================ Modal shell ============================
+  function renderModal() {
+    var m = STATE.modal;
+    var inner = '';
+    if (m.type === 'detail') inner = renderDetailModal(m.prop);
+    else if (m.type === 'form') inner = renderFormModal(m.mode, m.prop);
+    else if (m.type === 'deleteConfirm') inner = renderDeleteConfirm(m.prop);
+    else if (m.type === 'admin') inner = renderAdminModal();
+    return '<div class="modal-backdrop" onmousedown="if(event.target===this) MPT.closeModal()"><div class="modal">' + inner + '</div></div>';
+  }
+
+  function modalHeader(title) {
+    return '<div class="modal-header"><h2>' + esc(title) + '</h2><button class="modal-close" onclick="MPT.closeModal()">&times;</button></div>';
+  }
+
+  // ============================ Detail modal ============================
+  function renderDetailModal(p) {
+    var research = STATE.lang === 'es' ? p.aiResearchES : p.aiResearchEN;
+    var valueEst = STATE.lang === 'es' ? p.aiValueEstimateES : p.aiValueEstimateEN;
+    var mx = p.countryCode === 'MX';
+    var us = p.countryCode === 'US';
+    function kv(k, v) { return v ? '<div class="kv"><div class="k">' + esc(k) + '</div><div class="v">' + esc(v) + '</div></div>' : ''; }
+
+    var body = '' +
+      '<div class="field-group"><h4>' + esc(t('identification')) + '</h4>' +
+      kv(t('reference'), p.referencia) + kv(t('type'), p.tipo) + kv(t('owners'), p.propietario) +
+      kv(t('status'), statusLabel(p.status)) + (p.archived ? kv(t('archivedYes'), p.archivedReason || '—') : '') +
+      '</div>' +
+      '<div class="field-group"><h4>' + esc(t('location')) + '</h4>' +
+      kv(t('address'), p.direccion) + kv(t('city'), p.ciudad) + kv(t('state'), p.estado) + kv(t('zip'), p.cp) +
+      '<a class="maps-link" target="_blank" href="' + mapsLink(p) + '">📍 ' + esc(t('openInMaps')) + '</a>' +
+      '</div>' +
+      '<div class="field-group"><h4>' + esc(t('statusValue')) + '</h4>' +
+      kv(t('estimatedPrice'), fmtMoney(p.precioEstimadoUSD)) +
+      (p.precioEstimadoIsPlaceholder ? '<div class="flag">⚠ ' + esc(t('priceIsPlaceholder')) + '</div>' : '') +
+      (p.observacionesRaw ? kv(t('notes'), p.observacionesRaw) : '') +
+      '</div>' +
+      (mx ? '<div class="field-group"><h4>' + esc(t('mexicoOnly')) + '</h4>' +
+        kv(t('deedStatus'), p.escrituras) + kv(t('titledTo'), p.propEscriturado) + kv(t('successionPlan'), p.propuestaTraspaso) +
+        '</div>' : '') +
+      (us ? '<div class="field-group"><h4>' + esc(t('usaOnly')) + '</h4>' + kv(t('parcelPin'), p.pin) + '</div>' : '') +
+      (research ? '<div class="field-group"><h4>' + esc(t('research')) + '</h4><div class="prose">' + esc(research) + '</div></div>' : '') +
+      (valueEst ? '<div class="field-group"><h4>' + esc(t('valueEstimateLbl')) + '</h4><div class="prose">' + esc(valueEst) + '</div></div>' : '') +
+      '<div class="audit-footer">' + esc(t('createdBy')) + ': ' + esc(p.createdBy) + ' · ' + esc(t('updatedBy')) + ': ' + esc(p.updatedBy) + '</div>';
+
+    var footer = '<button class="btn btn-light" onclick="MPT.closeModal()">' + esc(t('close')) + '</button>' +
+      '<button class="btn btn-light" onclick="MPT.openEditForm(\'' + p.id + '\')">' + esc(t('edit')) + '</button>';
+    if (STATE.role === 'admin') {
+      footer += p.archived
+        ? '<button class="btn btn-light" onclick="MPT.doUnarchive(\'' + p.id + '\')">' + esc(t('unarchive')) + '</button>'
+        : '<button class="btn btn-light" onclick="MPT.doArchive(\'' + p.id + '\')">' + esc(t('archive')) + '</button>';
+      footer += '<button class="btn btn-outline-danger" onclick="MPT.openDeleteConfirm(\'' + p.id + '\')">' + esc(t('deleteBtn')) + '</button>';
+    }
+
+    return modalHeader(p.referencia || p.tipo) + '<div class="modal-body">' + body + '</div><div class="modal-footer">' + footer + '</div>';
+  }
+
+  // ============================ Add/Edit form modal ============================
+  function fld(id, label, value, type) {
+    type = type || 'text';
+    return '<div class="field"><label>' + esc(label) + '</label><input id="' + id + '" type="' + type + '" value="' + esc(value == null ? '' : value) + '"></div>';
+  }
+  function fldSelect(id, label, options, value) {
+    var opts = options.map(function (o) {
+      var v = typeof o === 'string' ? o : o.v, l = typeof o === 'string' ? o : o.l;
+      return '<option value="' + esc(v) + '"' + (v === value ? ' selected' : '') + '>' + esc(l) + '</option>';
+    }).join('');
+    return '<div class="field"><label>' + esc(label) + '</label><select id="' + id + '">' + opts + '</select></div>';
+  }
+
+  function renderFormModal(mode, p) {
+    p = p || {};
+    var statusOpts = STATUSES.map(function (s) { return { v: s, l: statusLabel(s) }; });
+    var tipoOpts = TIPOS.map(function (tp) { return { v: tp, l: tp }; });
+    var body = '' +
+      '<p style="color:var(--text-muted);font-size:.8rem">' + esc(t('requiredNote')) + '</p>' +
+      '<div class="field-group"><h4>' + esc(t('identification')) + '</h4>' +
+      '<div class="field-row">' + fld('f_referencia', t('reference'), p.referencia) + fldSelect('f_tipo', t('type'), tipoOpts, p.tipo || 'Casa') + '</div>' +
+      '<div class="field-row">' + fldSelect('f_countryCode', t('filterCountry'), [{ v: 'MX', l: t('mexico') }, { v: 'US', l: t('usa') }], p.countryCode || 'MX') +
+      fldSelect('f_status', t('status'), statusOpts, p.status || 'unspecified') + '</div>' +
+      '<div class="field-row">' + fld('f_propietario', t('owners'), p.propietario) + '</div>' +
+      '</div>' +
+      '<div class="field-group"><h4>' + esc(t('location')) + '</h4>' +
+      '<div class="field-row">' + fld('f_direccion', t('address'), p.direccion) + '</div>' +
+      '<div class="field-row">' + fld('f_ciudad', t('city'), p.ciudad) + fld('f_estado', t('state'), p.estado) + fld('f_cp', t('zip'), p.cp) + '</div>' +
+      '</div>' +
+      '<div class="field-group"><h4>' + esc(t('statusValue')) + '</h4>' +
+      '<div class="field-row">' + fld('f_precioEstimadoUSD', t('estimatedPrice'), p.precioEstimadoUSD, 'number') + '</div>' +
+      '<div class="field-row"><div class="field"><label>' + esc(t('notes')) + '</label><textarea id="f_observacionesRaw">' + esc(p.observacionesRaw) + '</textarea></div></div>' +
+      '</div>' +
+      '<div class="field-group"><h4>' + esc(t('mexicoOnly')) + '</h4>' +
+      '<div class="field-row">' + fld('f_escrituras', t('deedStatus'), p.escrituras) + fld('f_propEscriturado', t('titledTo'), p.propEscriturado) + '</div>' +
+      '<div class="field-row">' + fld('f_propuestaTraspaso', t('successionPlan'), p.propuestaTraspaso) + '</div>' +
+      '</div>' +
+      '<div class="field-group"><h4>' + esc(t('usaOnly')) + '</h4>' +
+      '<div class="field-row">' + fld('f_pin', t('parcelPin'), p.pin) + '</div>' +
+      '</div>';
+    var footer = '<button class="btn btn-light" onclick="MPT.closeModal()">' + esc(t('cancel')) + '</button>' +
+      '<button class="btn btn-primary" onclick="MPT.submitPropertyForm(\'' + mode + '\'' + (p.id ? ",'" + p.id + "'" : ', null') + ')">' + esc(t('save')) + '</button>';
+    return modalHeader(mode === 'edit' ? t('editPropertyTitle') : t('newPropertyTitle')) + '<div class="modal-body">' + body + '</div><div class="modal-footer">' + footer + '</div>';
+  }
+
+  function readForm() {
+    function v(id) { var el = document.getElementById(id); return el ? el.value : ''; }
+    return {
+      referencia: v('f_referencia'), tipo: v('f_tipo'), countryCode: v('f_countryCode'), status: v('f_status'),
+      propietario: v('f_propietario'), direccion: v('f_direccion'), ciudad: v('f_ciudad'), estado: v('f_estado'), cp: v('f_cp'),
+      precioEstimadoUSD: v('f_precioEstimadoUSD'), observacionesRaw: v('f_observacionesRaw'),
+      escrituras: v('f_escrituras'), propEscriturado: v('f_propEscriturado'), propuestaTraspaso: v('f_propuestaTraspaso'),
+      pin: v('f_pin')
+    };
+  }
+
+  // ============================ Delete confirm modal ============================
+  function renderDeleteConfirm(p) {
+    var body = '<p>' + esc(t('confirmDeleteBody')) + '</p>' +
+      '<div class="confirm-danger"><strong>' + esc(p.referencia) + '</strong><input id="f_confirmRef" type="text" placeholder="' + esc(p.referencia) + '"></div>';
+    var footer = '<button class="btn btn-light" onclick="MPT.closeModal()">' + esc(t('cancel')) + '</button>' +
+      '<button class="btn btn-danger" onclick="MPT.doDelete(\'' + p.id + '\')">' + esc(t('deleteBtn')) + '</button>';
+    return modalHeader(t('confirmDeleteTitle')) + '<div class="modal-body">' + body + '</div><div class="modal-footer">' + footer + '</div>';
+  }
+
+  // ============================ Admin modal ============================
+  function renderAdminModal() {
+    var tabs = '<div class="admin-tabs">' +
+      '<button class="tab' + (STATE.adminTab === 'users' ? ' active' : '') + '" onclick="MPT.setAdminTab(\'users\')">' + esc(t('users')) + '</button>' +
+      '<button class="tab' + (STATE.adminTab === 'audit' ? ' active' : '') + '" onclick="MPT.setAdminTab(\'audit\')">' + esc(t('auditLog')) + '</button>' +
+      '</div>';
+    var body = tabs + (STATE.adminTab === 'users' ? renderUsersTab() : renderAuditTab());
+    var footer = '<button class="btn btn-light" onclick="MPT.closeModal()">' + esc(t('close')) + '</button>';
+    return modalHeader(t('admin')) + '<div class="modal-body">' + body + '</div><div class="modal-footer">' + footer + '</div>';
+  }
+
+  function renderUsersTab() {
+    if (STATE.adminUsers == null) return '<p>' + esc(t('loading')) + '</p>';
+    var rows = STATE.adminUsers.map(function (u) {
+      return '<tr><td>' + esc(u.email) + '</td><td>' + esc(u.role) + '</td><td>' + esc(u.addedBy) + '</td>' +
+        '<td><button class="btn btn-sm btn-outline-danger" onclick="MPT.removeUserClick(\'' + esc(u.email) + '\')">' + esc(t('remove')) + '</button></td></tr>';
+    }).join('');
+    return '' +
+      '<div class="add-user-form">' +
+      '<input id="au_email" type="text" placeholder="' + esc(t('email')) + '">' +
+      '<select id="au_role"><option value="member">' + esc(t('roleMember')) + '</option><option value="admin">' + esc(t('roleAdmin')) + '</option></select>' +
+      '<button class="btn btn-primary btn-sm" onclick="MPT.addUserSubmit()">' + esc(t('addUser')) + '</button>' +
+      '</div>' +
+      '<table class="admin-table"><thead><tr><th>' + esc(t('email')) + '</th><th>' + esc(t('role')) + '</th><th>' + esc(t('addedBy')) + '</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>';
+  }
+
+  function renderAuditTab() {
+    if (STATE.adminAudit == null) return '<p>' + esc(t('loading')) + '</p>';
+    var rows = STATE.adminAudit.map(function (a) {
+      return '<tr><td>' + esc(a.ts) + '</td><td>' + esc(a.user) + '</td><td>' + esc(a.action) + '</td><td>' + esc(a.entityId) + '</td></tr>';
+    }).join('');
+    return '<table class="admin-table"><thead><tr><th>' + esc('Time') + '</th><th>' + esc('User') + '</th><th>' + esc('Action') + '</th><th>ID</th></tr></thead><tbody>' + rows + '</tbody></table>';
+  }
+
+  // ============================ Actions (exposed on window.MPT) ============================
+  var MPT = {};
+
+  MPT.setLang = function (lang) {
+    STATE.lang = lang;
+    localStorage.setItem('mpt_lang', lang);
+    render();
+  };
+
+  MPT.setFilter = function (key, val) {
+    STATE.filters[key] = val;
+    render();
+  };
+
+  MPT.openDetail = function (id) {
+    var p = STATE.properties.filter(function (x) { return x.id === id; })[0];
+    if (!p) return;
+    STATE.modal = { type: 'detail', prop: p };
+    render();
+  };
+
+  MPT.closeModal = function () { STATE.modal = null; render(); };
+
+  MPT.openAddForm = function () { STATE.modal = { type: 'form', mode: 'add', prop: null }; render(); };
+  MPT.openEditForm = function (id) {
+    var p = STATE.properties.filter(function (x) { return x.id === id; })[0];
+    if (!p) return;
+    STATE.modal = { type: 'form', mode: 'edit', prop: p };
+    render();
+  };
+
+  MPT.submitPropertyForm = function (mode, id) {
+    var form = readForm();
+    if (!form.referencia.trim() || !form.direccion.trim()) { toast(t('requiredNote'), true); return; }
+    if (mode === 'edit') {
+      google.script.run.withSuccessHandler(function (list) { refreshProperties(list); STATE.modal = null; render(); toast(t('toastSaved')); })
+        .withFailureHandler(onError).updateProperty(id, form);
+    } else {
+      google.script.run.withSuccessHandler(function (list) { refreshProperties(list); STATE.modal = null; render(); toast(t('toastSaved')); })
+        .withFailureHandler(onError).addProperty(form);
+    }
+  };
+
+  MPT.doArchive = function (id) {
+    var reason = window.prompt(t('confirmArchivePrompt')) || '';
+    google.script.run.withSuccessHandler(function (list) { refreshProperties(list); STATE.modal = null; render(); toast(t('toastArchived')); })
+      .withFailureHandler(onError).archiveProperty(id, reason);
+  };
+  MPT.doUnarchive = function (id) {
+    if (!window.confirm(t('confirmUnarchive'))) return;
+    google.script.run.withSuccessHandler(function (list) { refreshProperties(list); STATE.modal = null; render(); toast(t('toastUnarchived')); })
+      .withFailureHandler(onError).unarchiveProperty(id);
+  };
+  MPT.openDeleteConfirm = function (id) {
+    var p = STATE.properties.filter(function (x) { return x.id === id; })[0];
+    if (!p) return;
+    STATE.modal = { type: 'deleteConfirm', prop: p };
+    render();
+  };
+  MPT.doDelete = function (id) {
+    var typed = document.getElementById('f_confirmRef').value;
+    google.script.run.withSuccessHandler(function (list) { refreshProperties(list); STATE.modal = null; render(); toast(t('toastDeleted')); })
+      .withFailureHandler(onError).deleteProperty(id, typed);
+  };
+
+  MPT.doExport = function (all) {
+    var payload = all ? {} : { ids: filteredProperties().map(function (p) { return p.id; }) };
+    google.script.run.withSuccessHandler(function (res) {
+      toast(t('toastExported'));
+      window.open(res.url, '_blank');
+    }).withFailureHandler(onError).exportProperties(JSON.stringify(payload));
+  };
+
+  MPT.openAdmin = function () {
+    STATE.modal = { type: 'admin' };
+    STATE.adminTab = 'users';
+    STATE.adminUsers = null;
+    STATE.adminAudit = null;
+    render();
+    google.script.run.withSuccessHandler(function (u) { STATE.adminUsers = u; render(); }).withFailureHandler(onError).listUsers();
+  };
+  MPT.setAdminTab = function (tabName) {
+    STATE.adminTab = tabName;
+    render();
+    if (tabName === 'audit' && STATE.adminAudit == null) {
+      google.script.run.withSuccessHandler(function (a) { STATE.adminAudit = a; render(); }).withFailureHandler(onError).getAuditLog(100);
+    }
+  };
+  MPT.addUserSubmit = function () {
+    var email = document.getElementById('au_email').value;
+    var role = document.getElementById('au_role').value;
+    google.script.run.withSuccessHandler(function (u) { STATE.adminUsers = u; render(); toast(t('toastUserAdded')); })
+      .withFailureHandler(onError).saveUser(email, role);
+  };
+  MPT.removeUserClick = function (email) {
+    if (!window.confirm(email)) return;
+    google.script.run.withSuccessHandler(function (u) { STATE.adminUsers = u; render(); toast(t('toastUserRemoved')); })
+      .withFailureHandler(onError).removeUser(email);
+  };
+
+  window.MPT = MPT;
+  boot();
+})();
+</script>
