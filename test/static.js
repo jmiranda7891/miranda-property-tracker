@@ -87,5 +87,19 @@ module.exports = async function run(t) {
     t.check('7 US rows', us === 7, 'got ' + us);
     const willow = seed.filter((p) => p.referencia === 'Casa Willow')[0];
     t.check('the sold Chicago house is pre-archived in the seed', !!willow && willow.archived === true);
+
+    t.group('seed data - schema v2 (estate-planning rework)');
+    const VALID_STATUSES = ['en_uso', 'libre', 'en_venta', 'vendida'];
+    const VALID_PLANES = ['mantener_individual', 'fideicomiso', 'vender'];
+    t.check('every seed row has one of the 4 new status values', seed.every((p) => VALID_STATUSES.includes(p.status)),
+      [...new Set(seed.map((p) => p.status))].filter((s) => !VALID_STATUSES.includes(s)).join(','));
+    t.check('every seed row has escrituras Si or No (never Ejido/Proceso/etc)', seed.every((p) => p.escrituras === 'Si' || p.escrituras === 'No'),
+      [...new Set(seed.map((p) => p.escrituras))].filter((s) => s !== 'Si' && s !== 'No').join(','));
+    t.check('every seed row has an explicit boolean esEjido', seed.every((p) => typeof p.esEjido === 'boolean'));
+    t.check('every seed row has one of the 3 planLargoPlazo values', seed.every((p) => VALID_PLANES.includes(p.planLargoPlazo)),
+      [...new Set(seed.map((p) => p.planLargoPlazo))].filter((s) => !VALID_PLANES.includes(s)).join(','));
+    t.check('every seed row has lat/lng for the map view', seed.every((p) => typeof p.lat === 'number' && typeof p.lng === 'number'));
+    const ejidoCount = seed.filter((p) => p.esEjido).length;
+    t.check('at least one property is flagged as ejido land', ejidoCount > 0, 'got ' + ejidoCount);
   }
 };

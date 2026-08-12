@@ -32,16 +32,20 @@ module.exports = async function run(t) {
     const afterAdd = S.addProperty({ referencia: 'Test House', direccion: '123 Main St', countryCode: 'MX', ciudad: 'Maravatio', estado: 'Michoacan' });
     t.check('addProperty returns the updated list including the new row', afterAdd.some((p) => p.referencia === 'Test House'));
     const added = afterAdd.filter((p) => p.referencia === 'Test House')[0];
-    t.check('new property defaults to unspecified status', added.status === 'unspecified');
+    t.check('new property defaults to libre status', added.status === 'libre');
+    t.check('new property defaults escrituras to No', added.escrituras === 'No');
+    t.check('new property defaults esEjido to false', added.esEjido === false);
+    t.check('new property defaults planLargoPlazo to mantener_individual', added.planLargoPlazo === 'mantener_individual');
     t.check('new property is not archived', added.archived === false);
 
     let threwNoRef = false;
     try { S.addProperty({ direccion: 'no reference' }); } catch (e) { threwNoRef = true; }
     t.check('addProperty requires a reference name', threwNoRef);
 
-    const updated = S.updateProperty(added.id, { estado: 'Guanajuato', status: 'for_sale' });
+    const updated = S.updateProperty(added.id, { estado: 'Guanajuato', status: 'en_venta', esEjido: true, planLargoPlazo: 'vender' });
     const afterUpdate = updated.filter((p) => p.id === added.id)[0];
-    t.check('updateProperty applies field changes', afterUpdate.estado === 'Guanajuato' && afterUpdate.status === 'for_sale');
+    t.check('updateProperty applies field changes', afterUpdate.estado === 'Guanajuato' && afterUpdate.status === 'en_venta'
+      && afterUpdate.esEjido === true && afterUpdate.planLargoPlazo === 'vender');
 
     // A member (non-admin) can add and edit, but not archive/delete.
     S.saveUser('member@example.com', 'member');
@@ -124,5 +128,45 @@ module.exports = async function run(t) {
     t.check('seedProperties_() called by hand afterward is a no-op (SEED_DONE guard)', r2.alreadyDone === true, JSON.stringify(r2));
     const listAfterSecondSeed = S.listProperties();
     t.check('re-running seed does not duplicate rows', listAfterSecondSeed.length === listAfterSeed.length);
+  }
+
+  t.group('schema v2 migration (legacy-shaped rows on an existing live sheet)');
+  {
+    // Simulates a spreadsheet seeded before the schema v2 rework: append an old-shaped row
+    // directly (bypassing SEED_PROPERTIES_, which already writes the new shape), then force a
+    // fresh execution (bustReg_ - CACHE_ never survives a real Apps Script request the way it
+    // survives repeated calls within one Node process) and confirm ensureRegistry_'s
+    // migrateSchemaV2_ pass normalizes it - while leaving an already-new-shape row untouched.
+    const S = loadServer();
+    S.__setUser('admin@example.com');
+    S.getBootstrap();
+    const ssId = Object.keys(S.__spreadsheetApp.__registry)[0];
+    const ss = S.__spreadsheetApp.__registry[ssId];
+    const sh = ss.getSheetByName('Properties');
+    const head = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+    const legacy = {
+      id: 'legacy1', countryCode: 'MX', referencia: 'Legacy Test', direccion: 'Calle X', ciudad: 'Maravatio', estado: 'Michoacan',
+      status: 'in_process', escrituras: 'Ejido', propuestaTraspaso: 'Fideicomiso (Renta)', observacionesRaw: 'nota vieja'
+    };
+    sh.appendRow(head.map((h) => (legacy[h] != null ? legacy[h] : '')));
+    S.setProp_('SCHEMA_V2_DONE', '');
+    S.bustReg_();
+    S.getBootstrap();
+
+    const vals = sh.getDataRange().getValues();
+    const h2 = vals[0];
+    const idx = {}; h2.forEach((x, i) => { idx[x] = i; });
+    const migrated = vals.filter((r) => r[idx.id] === 'legacy1')[0];
+    const row = (name) => migrated[idx[name]];
+    t.check('legacy Ejido escrituras collapses to No', row('escrituras') === 'No', row('escrituras'));
+    t.check('legacy Ejido escrituras sets the separate esEjido flag', row('esEjido') === true, row('esEjido'));
+    t.check('legacy in_process status collapses to libre', row('status') === 'libre', row('status'));
+    t.check('the collapsed legacy status is preserved as a note', String(row('observacionesRaw')).includes('Estatus anterior: Proceso'));
+    t.check('legacy "Fideicomiso (Renta)" succession text maps to the fideicomiso plan', row('planLargoPlazo') === 'fideicomiso', row('planLargoPlazo'));
+    t.check('the original succession text is preserved as a note', String(row('observacionesRaw')).includes('Traspaso (dato original): Fideicomiso (Renta)'));
+
+    const fresh = vals.filter((r) => r[idx.referencia] === 'Casa Maravatio')[0];
+    const freshRow = (name) => fresh[idx[name]];
+    t.check('an already-new-shape row is left untouched by the migration', freshRow('status') === 'en_uso' && freshRow('escrituras') === 'Si');
   }
 };

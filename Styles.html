@@ -108,13 +108,11 @@
   }
   .prop-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,.1); transform: translateY(-1px); }
   .prop-card.archived { opacity: .6; }
-  .prop-card.accent-in_use { border-left-color: var(--ok); }
-  .prop-card.accent-for_sale, .prop-card.accent-in_process { border-left-color: var(--warn); }
-  .prop-card.accent-ejido { border-left-color: #6a3d8f; }
-  .prop-card.accent-family_matter { border-left-color: #a13a63; }
-  .prop-card.accent-investment { border-left-color: #2a5fa0; }
-  .prop-card.accent-held_by_company { border-left-color: #47535c; }
-  .prop-card.accent-sold, .prop-card.accent-unspecified { border-left-color: #999; }
+  .prop-card.accent-en_uso { border-left-color: var(--ok); }
+  .prop-card.accent-en_venta { border-left-color: var(--warn); }
+  .prop-card.accent-vendida { border-left-color: #2a5fa0; }
+  .prop-card.accent-libre { border-left-color: #999; }
+  .prop-card.accent-archived { border-left-color: #999; }
   .prop-card h3 { margin: .35rem 0 .2rem; font-size: 1.02rem; color: var(--navy); }
   .prop-card .sub { color: var(--text-muted); font-size: .82rem; margin-bottom: .5rem; }
   .prop-card .price { font-weight: 700; font-size: 1.15rem; color: var(--navy); margin-bottom: .4rem; }
@@ -135,15 +133,12 @@
     display: inline-block; font-size: .68rem; font-weight: 700; text-transform: uppercase;
     letter-spacing: .03em; padding: .18rem .5rem; border-radius: 999px;
   }
-  .badge-in_use { background: var(--ok-bg); color: var(--ok); }
-  .badge-for_sale { background: var(--warn-bg); color: var(--warn); }
-  .badge-in_process { background: var(--warn-bg); color: var(--warn); }
+  .badge-en_uso { background: var(--ok-bg); color: var(--ok); }
+  .badge-en_venta { background: var(--warn-bg); color: var(--warn); }
+  .badge-vendida { background: #e6f0fb; color: #2a5fa0; }
+  .badge-libre { background: #eee; color: #777; }
   .badge-ejido { background: #efe6f5; color: #6a3d8f; }
-  .badge-family_matter { background: #fde8ee; color: #a13a63; }
-  .badge-investment { background: #e6f0fb; color: #2a5fa0; }
-  .badge-held_by_company { background: #eef0f2; color: #47535c; }
-  .badge-sold { background: #eee; color: #777; }
-  .badge-unspecified { background: #eee; color: #777; }
+  .badge-archived { background: #eee; color: #777; }
 
   .empty-state { text-align: center; color: var(--text-muted); padding: 3rem 1rem; }
 
@@ -210,6 +205,12 @@
     overflow-x: auto; background: var(--card-bg); border: 1px solid var(--border);
     border-radius: var(--radius); box-shadow: var(--shadow);
   }
+
+  .map-container {
+    height: 65vh; min-height: 360px; border-radius: var(--radius); overflow: hidden;
+    border: 1px solid var(--border); box-shadow: var(--shadow);
+  }
+  .map-container .leaflet-popup-content a { color: var(--navy-light); font-weight: 600; }
   table.prop-table { width: 100%; border-collapse: collapse; font-size: .83rem; white-space: nowrap; }
   table.prop-table thead th {
     position: sticky; top: 0; background: #f0eee8; color: var(--text-muted);

@@ -14,16 +14,18 @@
       filterCountry: 'Country', filterStatus: 'Status', filterType: 'Type',
       filterSearchPlaceholder: 'Search reference, address, owner, city…',
       showArchived: 'Show archived', all: 'All', mexico: 'Mexico', usa: 'USA',
-      viewCards: 'Cards', viewList: 'List', viewOnMaps: 'View on Maps ↗',
+      viewCards: 'Cards', viewList: 'List', viewMap: 'Map', viewOnMaps: 'View on Maps ↗', viewDetails: 'View details',
       totalProperties: 'Properties', totalValue: 'Est. value (USD)', mxTitled: 'MX – clear title', mxEjido: 'MX – ejido/pending',
       close: 'Close', edit: 'Edit', archive: 'Archive', unarchive: 'Unarchive', deleteBtn: 'Delete', save: 'Save', cancel: 'Cancel',
       identification: 'Identification', location: 'Location', statusValue: 'Status & value',
-      mexicoOnly: 'Mexico – deed & succession', usaOnly: 'USA – parcel',
+      estatePlanning: 'Estate Planning', usaOnly: 'USA – parcel',
       research: 'Area research', valueEstimateLbl: 'Value estimate',
       createdBy: 'Added by', updatedBy: 'Last updated by', openInMaps: 'Open in Google Maps',
-      reference: 'Reference', type: 'Type', owners: 'Owner(s)', address: 'Address', city: 'City', state: 'State', zip: 'Zip',
+      reference: 'Reference', type: 'Type', owners: 'Beneficial Owner', address: 'Address', city: 'City', state: 'State', zip: 'Zip',
       notes: 'Notes', status: 'Status', estimatedPrice: 'Estimated price (USD)', priceIsPlaceholder: 'Placeholder value, not a real estimate',
-      deedStatus: 'Deed status (Escrituras)', titledTo: 'Titled to', successionPlan: 'Succession / transfer plan', parcelPin: 'Parcel PIN',
+      deedStatus: 'Deed status (Si/No)', titledTo: 'Titled Name', esEjidoLabel: 'Ejido land', planLargoPlazoLbl: 'Long-term plan', parcelPin: 'Parcel PIN',
+      planMantener: 'Keep Individual', planFideicomiso: 'Transfer to Trust', planVender: 'Sell',
+      yesWord: 'Yes', noWord: 'No',
       archivedYes: 'Archived', archivedBadge: 'ARCHIVED',
       confirmArchivePrompt: 'Reason for archiving this property (optional):',
       confirmUnarchive: 'Restore this property from the archive?',
@@ -36,9 +38,7 @@
       toastSaved: 'Saved', toastArchived: 'Archived', toastUnarchived: 'Restored', toastDeleted: 'Deleted', toastExported: 'Export ready – opening in a new tab',
       toastUserAdded: 'User saved', toastUserRemoved: 'User removed',
       requiredNote: 'Reference and address are required.',
-      s_in_use: 'In use', s_for_sale: 'For sale', s_in_process: 'In process', s_ejido: 'Ejido land',
-      s_family_matter: 'Family matter', s_investment: 'Investment', s_held_by_company: 'Held by company',
-      s_sold: 'Sold', s_unspecified: 'Unspecified'
+      s_en_uso: 'In use', s_libre: 'Free', s_en_venta: 'For sale', s_vendida: 'Sold'
     },
     es: {
       appTitle: 'Registro de Propiedades – Familia Miranda',
@@ -50,16 +50,18 @@
       filterCountry: 'País', filterStatus: 'Estatus', filterType: 'Tipo',
       filterSearchPlaceholder: 'Buscar referencia, dirección, propietario, ciudad…',
       showArchived: 'Mostrar archivadas', all: 'Todos', mexico: 'México', usa: 'EE. UU.',
-      viewCards: 'Tarjetas', viewList: 'Lista', viewOnMaps: 'Ver en Maps ↗',
+      viewCards: 'Tarjetas', viewList: 'Lista', viewMap: 'Mapa', viewOnMaps: 'Ver en Maps ↗', viewDetails: 'Ver detalle',
       totalProperties: 'Propiedades', totalValue: 'Valor est. (USD)', mxTitled: 'MX – escriturado', mxEjido: 'MX – ejido/pendiente',
       close: 'Cerrar', edit: 'Editar', archive: 'Archivar', unarchive: 'Restaurar', deleteBtn: 'Eliminar', save: 'Guardar', cancel: 'Cancelar',
       identification: 'Identificación', location: 'Ubicación', statusValue: 'Estatus y valor',
-      mexicoOnly: 'México – escrituras y sucesión', usaOnly: 'EE. UU. – parcela',
+      estatePlanning: 'Planeación Patrimonial', usaOnly: 'EE. UU. – parcela',
       research: 'Investigación de la zona', valueEstimateLbl: 'Estimación de valor',
       createdBy: 'Agregado por', updatedBy: 'Última actualización por', openInMaps: 'Abrir en Google Maps',
-      reference: 'Referencia', type: 'Tipo', owners: 'Propietario(s)', address: 'Dirección', city: 'Ciudad', state: 'Estado', zip: 'C.P.',
+      reference: 'Referencia', type: 'Tipo', owners: 'Dueño Beneficiario', address: 'Dirección', city: 'Ciudad', state: 'Estado', zip: 'C.P.',
       notes: 'Observaciones', status: 'Estatus', estimatedPrice: 'Precio estimado (USD)', priceIsPlaceholder: 'Valor de relleno, no es una estimación real',
-      deedStatus: 'Escrituras', titledTo: 'Propietario escriturado', successionPlan: 'Propuesta de traspaso', parcelPin: 'PIN de parcela',
+      deedStatus: 'Escrituras (Si/No)', titledTo: 'Nombre Escriturado', esEjidoLabel: 'Terreno ejidal', planLargoPlazoLbl: 'Plan a largo plazo', parcelPin: 'PIN de parcela',
+      planMantener: 'Mantener Individual', planFideicomiso: 'Traspasar a Fideicomiso', planVender: 'Vender',
+      yesWord: 'Sí', noWord: 'No',
       archivedYes: 'Archivada', archivedBadge: 'ARCHIVADA',
       confirmArchivePrompt: 'Motivo para archivar esta propiedad (opcional):',
       confirmUnarchive: '¿Restaurar esta propiedad del archivo?',
@@ -72,14 +74,13 @@
       toastSaved: 'Guardado', toastArchived: 'Archivada', toastUnarchived: 'Restaurada', toastDeleted: 'Eliminada', toastExported: 'Exportación lista – abriendo en una pestaña nueva',
       toastUserAdded: 'Usuario guardado', toastUserRemoved: 'Usuario eliminado',
       requiredNote: 'Referencia y dirección son obligatorias.',
-      s_in_use: 'En uso', s_for_sale: 'En venta', s_in_process: 'En proceso', s_ejido: 'Terreno ejidal',
-      s_family_matter: 'Asunto familiar', s_investment: 'Inversión', s_held_by_company: 'A nombre de empresa',
-      s_sold: 'Vendida', s_unspecified: 'Sin especificar'
+      s_en_uso: 'En uso', s_libre: 'Libre', s_en_venta: 'En venta', s_vendida: 'Vendida'
     }
   };
 
-  var STATUSES = ['in_use', 'for_sale', 'in_process', 'ejido', 'family_matter', 'investment', 'held_by_company', 'sold', 'unspecified'];
+  var STATUSES = ['en_uso', 'libre', 'en_venta', 'vendida'];
   var TIPOS = ['Casa', 'Departamento', 'Edificio', 'Local', 'Oficina', 'Terreno', 'Otro'];
+  var PLANES_LARGO_PLAZO = ['mantener_individual', 'fideicomiso', 'vender'];
 
   var STATE = {
     email: '', role: 'none', build: '',
@@ -97,8 +98,9 @@
   };
 
   function t(key) { var d = I18N[STATE.lang] || I18N.en; return d[key] != null ? d[key] : key; }
-  function statusLabel(s) { return t('s_' + (s || 'unspecified')); }
+  function statusLabel(s) { return t('s_' + (s || 'libre')); }
   function countryLabel(c) { return c === 'US' ? t('usa') : t('mexico'); }
+  function planLabel(p) { return p === 'vender' ? t('planVender') : (p === 'fideicomiso' ? t('planFideicomiso') : t('planMantener')); }
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -205,6 +207,9 @@
     if (STATE.modal) html += renderModal();
     if (STATE.toast) html += '<div class="toast' + (STATE.toast.isError ? ' error' : '') + '">' + esc(STATE.toast.msg) + '</div>';
     app.innerHTML = html;
+    // Leaflet needs a live DOM node to attach to, which only exists after innerHTML above runs.
+    if (STATE.view === 'map') setTimeout(initMap, 0);
+    else if (MAP_INSTANCE_) { MAP_INSTANCE_.remove(); MAP_INSTANCE_ = null; }
   }
 
   function renderTopbar() {
@@ -221,6 +226,7 @@
         '<div class="lang-toggle">' +
         '<button class="' + (STATE.view === 'cards' ? 'active' : '') + '" onclick="MPT.setView(\'cards\')">' + esc(t('viewCards')) + '</button>' +
         '<button class="' + (STATE.view === 'list' ? 'active' : '') + '" onclick="MPT.setView(\'list\')">' + esc(t('viewList')) + '</button>' +
+        '<button class="' + (STATE.view === 'map' ? 'active' : '') + '" onclick="MPT.setView(\'map\')">' + esc(t('viewMap')) + '</button>' +
         '</div>' +
         '<button class="btn btn-ghost" onclick="MPT.openAddForm()">+ ' + esc(t('addProperty')) + '</button>' +
         '<button class="btn btn-ghost" onclick="MPT.doExport(false)">' + esc(t('exportFiltered')) + '</button>' +
@@ -264,17 +270,54 @@
   function renderProperties() {
     var list = sortProperties(filteredProperties());
     if (!list.length) return '<div class="empty-state">' + esc(t('noProperties')) + '</div>';
-    return STATE.view === 'list' ? renderListView(list) : '<div class="card-grid">' + list.map(renderCard).join('') + '</div>';
+    if (STATE.view === 'list') return renderListView(list);
+    if (STATE.view === 'map') return '<div id="mapContainer" class="map-container"></div>';
+    return '<div class="card-grid">' + list.map(renderCard).join('') + '</div>';
+  }
+
+  // ============================ Map view (Leaflet + OpenStreetMap - no Google Maps key) ============================
+  var MAP_INSTANCE_ = null;
+  // A small deterministic offset so properties that share one town-center coordinate (several
+  // Maravatío parcels, for instance) don't render as one indistinguishable stacked pin. Not
+  // stored anywhere - purely a display nudge, recomputed the same way every time from the id.
+  function jitter_(id) {
+    var h = 0;
+    for (var i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
+    var a = ((h & 0xffff) / 0xffff) - 0.5;
+    var b = (((h >> 16) & 0xffff) / 0xffff) - 0.5;
+    return [a * 0.01, b * 0.01];
+  }
+  function initMap() {
+    var container = document.getElementById('mapContainer');
+    if (!container || typeof L === 'undefined') return;
+    if (MAP_INSTANCE_) { MAP_INSTANCE_.remove(); MAP_INSTANCE_ = null; }
+    var list = sortProperties(filteredProperties()).filter(function (p) { return p.lat != null && p.lng != null; });
+    MAP_INSTANCE_ = L.map('mapContainer').setView([23.6, -102.5], 5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors', maxZoom: 18
+    }).addTo(MAP_INSTANCE_);
+    var bounds = [];
+    list.forEach(function (p) {
+      var j = jitter_(p.id);
+      var latlng = [p.lat + j[0], p.lng + j[1]];
+      var popup = '<strong>' + esc(p.referencia) + '</strong><br>' + esc(p.ciudad) + ', ' + esc(p.estado) +
+        '<br>' + fmtMoney(p.precioEstimadoUSD) +
+        '<br><a href="#" onclick="MPT.openDetail(\'' + p.id + '\');return false;">' + esc(t('viewDetails')) + '</a>';
+      L.marker(latlng).addTo(MAP_INSTANCE_).bindPopup(popup);
+      bounds.push(latlng);
+    });
+    if (bounds.length) MAP_INSTANCE_.fitBounds(bounds, { padding: [30, 30] });
   }
 
   function renderCard(p) {
     var flag = p.precioEstimadoIsPlaceholder ? '<div class="flag">⚠ ' + esc(t('priceIsPlaceholder')) + '</div>' : '';
-    var accentClass = 'accent-' + (p.archived ? 'sold' : (p.status || 'unspecified'));
+    var accentClass = 'accent-' + (p.archived ? 'archived' : (p.status || 'libre'));
     return '' +
       '<div class="prop-card ' + accentClass + (p.archived ? ' archived' : '') + '" onclick="MPT.openDetail(\'' + p.id + '\')">' +
       '<span class="chip-country">' + esc(p.countryCode === 'US' ? 'US' : 'MX') + '</span>' +
+      (p.esEjido ? '<span class="badge badge-ejido">' + esc(t('esEjidoLabel')) + '</span> ' : '') +
       '<span class="badge badge-' + esc(p.status) + '">' + esc(statusLabel(p.status)) + '</span>' +
-      (p.archived ? ' <span class="badge badge-sold">' + esc(t('archivedBadge')) + '</span>' : '') +
+      (p.archived ? ' <span class="badge badge-archived">' + esc(t('archivedBadge')) + '</span>' : '') +
       '<h3>' + esc(p.referencia || p.tipo) + '</h3>' +
       '<div class="sub">' + esc(p.tipo) + ' · ' + esc(p.ciudad) + ', ' + esc(p.estado) + '</div>' +
       '<div class="price">' + fmtMoney(p.precioEstimadoUSD) + '</div>' +
@@ -291,11 +334,12 @@
     { key: 'ciudad', labelKey: 'city' },
     { key: 'estado', labelKey: 'state' },
     { key: 'propietario', labelKey: 'owners' },
+    { key: 'propEscriturado', labelKey: 'titledTo' },
     { key: 'status', labelKey: 'status' },
     { key: 'precioEstimadoUSD', labelKey: 'estimatedPrice', num: true },
     { key: 'escrituras', labelKey: 'deedStatus' },
-    { key: 'propEscriturado', labelKey: 'titledTo' },
-    { key: 'propuestaTraspaso', labelKey: 'successionPlan' },
+    { key: 'esEjido', labelKey: 'esEjidoLabel' },
+    { key: 'planLargoPlazo', labelKey: 'planLargoPlazoLbl' },
     { key: 'pin', labelKey: 'parcelPin' },
     { key: 'observacionesRaw', labelKey: 'notes', sortable: false }
   ];
@@ -312,6 +356,8 @@
         if (c.key === 'status') v = statusLabel(p.status);
         else if (c.key === 'countryCode') v = countryLabel(p.countryCode);
         else if (c.key === 'precioEstimadoUSD') v = fmtMoney(p.precioEstimadoUSD);
+        else if (c.key === 'esEjido') v = p.esEjido ? t('esEjidoLabel') : '';
+        else if (c.key === 'planLargoPlazo') v = planLabel(p.planLargoPlazo);
         else v = p[c.key] || '';
         return '<td class="' + (c.num ? 'num' : '') + '">' + esc(v) + '</td>';
       }).join('');
@@ -339,13 +385,12 @@
   function renderDetailModal(p) {
     var research = STATE.lang === 'es' ? p.aiResearchES : p.aiResearchEN;
     var valueEst = STATE.lang === 'es' ? p.aiValueEstimateES : p.aiValueEstimateEN;
-    var mx = p.countryCode === 'MX';
     var us = p.countryCode === 'US';
     function kv(k, v) { return v ? '<div class="kv"><div class="k">' + esc(k) + '</div><div class="v">' + esc(v) + '</div></div>' : ''; }
 
     var body = '' +
       '<div class="field-group"><h4>' + esc(t('identification')) + '</h4>' +
-      kv(t('reference'), p.referencia) + kv(t('type'), p.tipo) + kv(t('owners'), p.propietario) +
+      kv(t('reference'), p.referencia) + kv(t('type'), p.tipo) +
       kv(t('status'), statusLabel(p.status)) + (p.archived ? kv(t('archivedYes'), p.archivedReason || '—') : '') +
       '</div>' +
       '<div class="field-group"><h4>' + esc(t('location')) + '</h4>' +
@@ -357,9 +402,12 @@
       (p.precioEstimadoIsPlaceholder ? '<div class="flag">⚠ ' + esc(t('priceIsPlaceholder')) + '</div>' : '') +
       (p.observacionesRaw ? kv(t('notes'), p.observacionesRaw) : '') +
       '</div>' +
-      (mx ? '<div class="field-group"><h4>' + esc(t('mexicoOnly')) + '</h4>' +
-        kv(t('deedStatus'), p.escrituras) + kv(t('titledTo'), p.propEscriturado) + kv(t('successionPlan'), p.propuestaTraspaso) +
-        '</div>' : '') +
+      '<div class="field-group"><h4>' + esc(t('estatePlanning')) + '</h4>' +
+      kv(t('titledTo'), p.propEscriturado) + kv(t('owners'), p.propietario) +
+      kv(t('deedStatus'), p.escrituras === 'Si' ? t('yesWord') : t('noWord')) +
+      kv(t('esEjidoLabel'), p.esEjido ? t('yesWord') : t('noWord')) +
+      kv(t('planLargoPlazoLbl'), planLabel(p.planLargoPlazo)) +
+      '</div>' +
       (us ? '<div class="field-group"><h4>' + esc(t('usaOnly')) + '</h4>' + kv(t('parcelPin'), p.pin) + '</div>' : '') +
       (research ? '<div class="field-group"><h4>' + esc(t('research')) + '</h4><div class="prose">' + esc(research) + '</div></div>' : '') +
       (valueEst ? '<div class="field-group"><h4>' + esc(t('valueEstimateLbl')) + '</h4><div class="prose">' + esc(valueEst) + '</div></div>' : '') +
@@ -378,9 +426,10 @@
   }
 
   // ============================ Add/Edit form modal ============================
-  function fld(id, label, value, type) {
+  function fld(id, label, value, type, listId) {
     type = type || 'text';
-    return '<div class="field"><label>' + esc(label) + '</label><input id="' + id + '" type="' + type + '" value="' + esc(value == null ? '' : value) + '"></div>';
+    return '<div class="field"><label>' + esc(label) + '</label><input id="' + id + '" type="' + type + '" value="' + esc(value == null ? '' : value) + '"' +
+      (listId ? ' list="' + listId + '"' : '') + '></div>';
   }
   function fldSelect(id, label, options, value) {
     var opts = options.map(function (o) {
@@ -389,18 +438,40 @@
     }).join('');
     return '<div class="field"><label>' + esc(label) + '</label><select id="' + id + '">' + opts + '</select></div>';
   }
+  function fldCheckbox(id, label, checked) {
+    return '<div class="field"><label>&nbsp;</label>' +
+      '<label class="chk" style="margin-top:.45rem"><input type="checkbox" id="' + id + '" ' + (checked ? 'checked' : '') + '> ' + esc(label) + '</label></div>';
+  }
+
+  // Names already used across the portfolio, offered as autocomplete on both name fields (a
+  // property can be titled to one entity but beneficially owned by another - both are name
+  // fields, so both get the same pick-existing-or-type-new treatment).
+  function nameDatalist() {
+    var names = {};
+    STATE.properties.forEach(function (p) {
+      if (p.propietario) names[p.propietario] = true;
+      if (p.propEscriturado) names[p.propEscriturado] = true;
+    });
+    var opts = Object.keys(names).sort().map(function (n) { return '<option value="' + esc(n) + '">'; }).join('');
+    return '<datalist id="dl_names">' + opts + '</datalist>';
+  }
 
   function renderFormModal(mode, p) {
     p = p || {};
     var statusOpts = STATUSES.map(function (s) { return { v: s, l: statusLabel(s) }; });
     var tipoOpts = TIPOS.map(function (tp) { return { v: tp, l: tp }; });
+    var planOpts = [
+      { v: 'mantener_individual', l: t('planMantener') },
+      { v: 'fideicomiso', l: t('planFideicomiso') },
+      { v: 'vender', l: t('planVender') }
+    ];
     var body = '' +
+      nameDatalist() +
       '<p style="color:var(--text-muted);font-size:.8rem">' + esc(t('requiredNote')) + '</p>' +
       '<div class="field-group"><h4>' + esc(t('identification')) + '</h4>' +
       '<div class="field-row">' + fld('f_referencia', t('reference'), p.referencia) + fldSelect('f_tipo', t('type'), tipoOpts, p.tipo || 'Casa') + '</div>' +
       '<div class="field-row">' + fldSelect('f_countryCode', t('filterCountry'), [{ v: 'MX', l: t('mexico') }, { v: 'US', l: t('usa') }], p.countryCode || 'MX') +
-      fldSelect('f_status', t('status'), statusOpts, p.status || 'unspecified') + '</div>' +
-      '<div class="field-row">' + fld('f_propietario', t('owners'), p.propietario) + '</div>' +
+      fldSelect('f_status', t('status'), statusOpts, p.status || 'libre') + '</div>' +
       '</div>' +
       '<div class="field-group"><h4>' + esc(t('location')) + '</h4>' +
       '<div class="field-row">' + fld('f_direccion', t('address'), p.direccion) + '</div>' +
@@ -410,9 +481,12 @@
       '<div class="field-row">' + fld('f_precioEstimadoUSD', t('estimatedPrice'), p.precioEstimadoUSD, 'number') + '</div>' +
       '<div class="field-row"><div class="field"><label>' + esc(t('notes')) + '</label><textarea id="f_observacionesRaw">' + esc(p.observacionesRaw) + '</textarea></div></div>' +
       '</div>' +
-      '<div class="field-group"><h4>' + esc(t('mexicoOnly')) + '</h4>' +
-      '<div class="field-row">' + fld('f_escrituras', t('deedStatus'), p.escrituras) + fld('f_propEscriturado', t('titledTo'), p.propEscriturado) + '</div>' +
-      '<div class="field-row">' + fld('f_propuestaTraspaso', t('successionPlan'), p.propuestaTraspaso) + '</div>' +
+      '<div class="field-group"><h4>' + esc(t('estatePlanning')) + '</h4>' +
+      '<div class="field-row">' + fld('f_propEscriturado', t('titledTo'), p.propEscriturado, 'text', 'dl_names') +
+      fld('f_propietario', t('owners'), p.propietario, 'text', 'dl_names') + '</div>' +
+      '<div class="field-row">' + fldSelect('f_escrituras', t('deedStatus'), [{ v: 'No', l: t('noWord') }, { v: 'Si', l: t('yesWord') }], p.escrituras || 'No') +
+      fldCheckbox('f_esEjido', t('esEjidoLabel'), !!p.esEjido) + '</div>' +
+      '<div class="field-row">' + fldSelect('f_planLargoPlazo', t('planLargoPlazoLbl'), planOpts, p.planLargoPlazo || 'mantener_individual') + '</div>' +
       '</div>' +
       '<div class="field-group"><h4>' + esc(t('usaOnly')) + '</h4>' +
       '<div class="field-row">' + fld('f_pin', t('parcelPin'), p.pin) + '</div>' +
@@ -424,12 +498,13 @@
 
   function readForm() {
     function v(id) { var el = document.getElementById(id); return el ? el.value : ''; }
+    function checked(id) { var el = document.getElementById(id); return el ? el.checked : false; }
     return {
       referencia: v('f_referencia'), tipo: v('f_tipo'), countryCode: v('f_countryCode'), status: v('f_status'),
       propietario: v('f_propietario'), direccion: v('f_direccion'), ciudad: v('f_ciudad'), estado: v('f_estado'), cp: v('f_cp'),
       precioEstimadoUSD: v('f_precioEstimadoUSD'), observacionesRaw: v('f_observacionesRaw'),
-      escrituras: v('f_escrituras'), propEscriturado: v('f_propEscriturado'), propuestaTraspaso: v('f_propuestaTraspaso'),
-      pin: v('f_pin')
+      escrituras: v('f_escrituras'), esEjido: checked('f_esEjido'), propEscriturado: v('f_propEscriturado'),
+      planLargoPlazo: v('f_planLargoPlazo'), pin: v('f_pin')
     };
   }
 

@@ -8,8 +8,9 @@ const SAMPLE_PROPS = [
   {
     id: 'p1', countryCode: 'MX', paisRaw: 'Mexico', tipo: 'Casa', referencia: 'Casa Test',
     propietario: 'Owner A', direccion: 'Calle 1', ciudad: 'Maravatio', estado: 'Michoacan', cp: '61250',
-    observacionesRaw: 'En Uso', status: 'in_use', precioEstimadoUSD: 100000, precioEstimadoIsPlaceholder: false,
-    escrituras: 'Si', propEscriturado: 'Owner A', propuestaTraspaso: '', pin: '',
+    observacionesRaw: 'En Uso', status: 'en_uso', precioEstimadoUSD: 100000, precioEstimadoIsPlaceholder: false,
+    escrituras: 'Si', esEjido: false, propEscriturado: 'Titled Name A', planLargoPlazo: 'fideicomiso', pin: '',
+    lat: 19.8942, lng: -100.4436,
     aiResearchEN: 'English research text for Casa Test.', aiResearchES: 'Texto de investigación en español para Casa Test.',
     aiValueEstimateEN: 'English value estimate.', aiValueEstimateES: 'Estimación de valor en español.',
     researchDate: '', archived: false, archivedReason: '', createdBy: 'a@x.com', createdAt: '', updatedBy: 'a@x.com', updatedAt: ''
@@ -17,8 +18,9 @@ const SAMPLE_PROPS = [
   {
     id: 'p2', countryCode: 'US', paisRaw: 'Estados Unidos', tipo: 'Edificio', referencia: 'US Test',
     propietario: 'Owner B', direccion: '1 Main St', ciudad: 'Chicago', estado: 'Illinois', cp: '60654',
-    observacionesRaw: '', status: 'for_sale', precioEstimadoUSD: 500000, precioEstimadoIsPlaceholder: false,
-    escrituras: '', propEscriturado: '', propuestaTraspaso: '', pin: '17-00-000-000-0000',
+    observacionesRaw: '', status: 'en_venta', precioEstimadoUSD: 500000, precioEstimadoIsPlaceholder: false,
+    escrituras: 'No', esEjido: false, propEscriturado: '', planLargoPlazo: 'mantener_individual', pin: '17-00-000-000-0000',
+    lat: 41.8781, lng: -87.6298,
     aiResearchEN: 'English research text for US Test.', aiResearchES: 'Texto de investigación en español para US Test.',
     aiValueEstimateEN: 'US value estimate.', aiValueEstimateES: 'Estimación de valor en EE. UU.',
     researchDate: '', archived: false, archivedReason: '', createdBy: 'a@x.com', createdAt: '', updatedBy: 'a@x.com', updatedAt: ''
@@ -46,6 +48,27 @@ function apiSourceFor(role) {
     };
   `;
 }
+
+// A minimal fake of the two Leaflet calls initMap() makes, so the map view's OWN logic (right
+// container id, one marker per property with coordinates, a working popup link back to
+// openDetail) is verified without depending on live network access to the Leaflet CDN in the
+// test sandbox - the real CDN load is a manual-smoke-test item (see CLAUDE.md), not this suite.
+const FAKE_LEAFLET_PRELUDE = `
+  window.__mapCalls = [];
+  window.__markers = [];
+  window.L = {
+    map: function (id) {
+      window.__mapCalls.push(id);
+      var inst = { setView: function () { return inst; }, remove: function () {}, fitBounds: function () { return inst; } };
+      return inst;
+    },
+    tileLayer: function () { return { addTo: function () { return this; } }; },
+    marker: function (latlng) {
+      var m = { latlng: latlng, addTo: function () { window.__markers.push(m); return m; }, bindPopup: function (html) { m.popup = html; return m; } };
+      return m;
+    }
+  };
+`;
 
 module.exports = async function run(t) {
   const browser = await chromium.launch(launchOpts());
@@ -148,7 +171,7 @@ module.exports = async function run(t) {
     await page.waitForTimeout(50);
     const researchEn = await page.locator('.field-group .prose').first().textContent();
     t.check('detail shows the English research field after switching to EN', researchEn.indexOf('English research text') >= 0, researchEn);
-    const ownerText = await page.locator('.kv:has-text("Owner(s)") .v, .kv:has-text("Propietario(s)") .v').first().textContent();
+    const ownerText = await page.locator('.kv:has-text("Beneficial Owner") .v, .kv:has-text("Dueño Beneficiario") .v').first().textContent();
     t.check('the raw owner field is never translated', ownerText.trim() === 'Owner A', ownerText);
 
     await page.click('.modal-close');
@@ -158,6 +181,53 @@ module.exports = async function run(t) {
     await page.waitForTimeout(50);
     const researchEs = await page.locator('.field-group .prose').first().textContent();
     t.check('detail shows the Spanish research field after switching back to ES', researchEs.indexOf('investigación en español') >= 0, researchEs);
+    await page.close();
+  }
+
+  t.group('estate planning fields (add/edit form)');
+  {
+    const page = await browser.newPage();
+    t.watch(page);
+    const url = writePage('client-form.html', buildPage({ apiSource: apiSourceFor('admin') }));
+    await page.goto(url);
+    await page.waitForTimeout(150);
+
+    // Detail view shows the deed status as Sí/No text and the ejido flag, not a raw enum key.
+    await page.click('.prop-card >> nth=0');
+    await page.waitForTimeout(50);
+    const deedText = await page.locator('.kv:has-text("Escrituras"), .kv:has-text("Deed status")').first().locator('.v').textContent();
+    t.check('deed status renders as a yes/no word, not a raw code', ['Sí', 'Yes', 'No'].includes(deedText.trim()), deedText);
+    await page.click('.modal-close');
+
+    await page.click('button:has-text("Agregar propiedad"), button:has-text("Add property")');
+    await page.waitForTimeout(50);
+    const escrituraOptions = await page.locator('#f_escrituras option').allTextContents();
+    t.check('Escrituras is a two-option Si/No select, not free text', escrituraOptions.length === 2);
+    const planOptions = await page.locator('#f_planLargoPlazo option').allTextContents();
+    t.check('Plan a Largo Plazo has exactly 3 options', planOptions.length === 3, planOptions.join(','));
+    t.check('an Es Ejido checkbox exists', (await page.locator('#f_esEjido').count()) === 1);
+
+    const datalistOptions = await page.locator('#dl_names option').evaluateAll((els) => els.map((e) => e.value));
+    t.check('the name datalist is populated from existing properties', datalistOptions.includes('Owner A') && datalistOptions.includes('Titled Name A'), datalistOptions.join(','));
+    t.check('both name fields point at the shared datalist', (await page.locator('#f_propietario').getAttribute('list')) === 'dl_names'
+      && (await page.locator('#f_propEscriturado').getAttribute('list')) === 'dl_names');
+    await page.close();
+  }
+
+  t.group('map view (fake Leaflet - verifies initMap()\'s own logic, not the real CDN)');
+  {
+    const page = await browser.newPage();
+    t.watch(page);
+    const url = writePage('client-map.html', buildPage({ apiSource: apiSourceFor('admin'), preludeJs: FAKE_LEAFLET_PRELUDE }));
+    await page.goto(url);
+    await page.waitForTimeout(150);
+    await page.click('button:has-text("Mapa"), button:has-text("Map")');
+    await page.waitForTimeout(100);
+    const mapCalls = await page.evaluate(() => window.__mapCalls);
+    t.check('switching to Map view initializes Leaflet on #mapContainer', mapCalls.includes('mapContainer'), mapCalls.join(','));
+    const markers = await page.evaluate(() => window.__markers.map((m) => ({ latlng: m.latlng, popup: m.popup })));
+    t.check('one marker per property with coordinates', markers.length === 2, JSON.stringify(markers.map((m) => m.latlng)));
+    t.check('a marker popup links back to the same detail modal', markers.some((m) => m.popup.includes('Casa Test') && m.popup.includes("MPT.openDetail('p1')")), JSON.stringify(markers));
     await page.close();
   }
 
