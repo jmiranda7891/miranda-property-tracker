@@ -205,4 +205,59 @@ module.exports = async function run(t) {
     const afterUpdate = updated.filter((p) => p.id === targetId)[0];
     t.check('updateProperty can change lat/lng', Number(afterUpdate.lat) === 10 && Number(afterUpdate.lng) === 20);
   }
+
+  t.group('automatic geocoding (built-in Maps service, faked)');
+  {
+    const S = loadServer();
+    S.__setUser('admin@example.com');
+    // The geocoder "knows" one street address and every city query; the street hit for the
+    // known address, the city-center hit for everything else. A bogus out-of-country result
+    // for one specific address exercises the bounds check.
+    S.__setGeocode((query) => {
+      if (query.includes('Calle Conocida 1')) return { lat: 19.7001, lng: -101.1001 };
+      if (query.includes('Calle Rara 9')) return { lat: 40.4168, lng: -3.7038 }; // Madrid, Spain - a wrong-continent geocoder match
+      if (query.startsWith('Morelia')) return { lat: 19.7008, lng: -101.1844 };
+      return null;
+    });
+    const boot = S.getBootstrap();
+    t.check('the one-time re-geocode pass ran at bootstrap (GEOCODE_ALL_V1)', S.prop_('GEOCODE_ALL_V1_DONE') === 'true');
+    const callsAfterBoot = S.__geocodeCalls.length;
+    t.check('the pass geocoded every seeded row', callsAfterBoot >= 41, 'calls: ' + callsAfterBoot);
+    S.bustReg_();
+    S.getBootstrap();
+    t.check('a second bootstrap does not re-geocode (flag guard)', S.__geocodeCalls.length === callsAfterBoot, 'calls: ' + S.__geocodeCalls.length);
+
+    const added = S.addProperty({ referencia: 'Geo Test', direccion: 'Calle Conocida 1', ciudad: 'Morelia', estado: 'Michoacan', countryCode: 'MX' })
+      .filter((p) => p.referencia === 'Geo Test')[0];
+    t.check('a new property with blank coordinates is geocoded from its address',
+      Math.abs(added.lat - 19.7001) < 0.0001 && Math.abs(added.lng - (-101.1001)) < 0.0001, added.lat + ',' + added.lng);
+
+    const manual = S.addProperty({ referencia: 'Manual Geo', direccion: 'Calle Conocida 1', ciudad: 'Morelia', estado: 'Michoacan', countryCode: 'MX', lat: 1, lng: 2 })
+      .filter((p) => p.referencia === 'Manual Geo')[0];
+    t.check('manually typed coordinates are respected over the geocoder', Number(manual.lat) === 1 && Number(manual.lng) === 2);
+
+    const fallback = S.addProperty({ referencia: 'Fallback Geo', direccion: 'Calle Desconocida 77', ciudad: 'Morelia', estado: 'Michoacan', countryCode: 'MX' })
+      .filter((p) => p.referencia === 'Fallback Geo')[0];
+    t.check('an unknown street falls back to the city-center coordinates',
+      Math.abs(fallback.lat - 19.7008) < 0.0001, fallback.lat + ',' + fallback.lng);
+
+    const bounded = S.addProperty({ referencia: 'Bounds Geo', direccion: 'Calle Rara 9', ciudad: 'Morelia', estado: 'Michoacan', countryCode: 'MX' })
+      .filter((p) => p.referencia === 'Bounds Geo')[0];
+    t.check('an out-of-country geocoder match is rejected and falls back to the city',
+      Math.abs(bounded.lat - 19.7008) < 0.0001, bounded.lat + ',' + bounded.lng);
+
+    // Editing the address with untouched (prefilled) coordinates moves the pin; typing new
+    // coordinates pins it exactly there instead.
+    const moved = S.updateProperty(added.id, { direccion: 'Otra Calle 5', lat: added.lat, lng: added.lng })
+      .filter((p) => p.id === added.id)[0];
+    t.check('editing the address re-geocodes when coordinates were left as prefilled',
+      Math.abs(moved.lat - 19.7008) < 0.0001, moved.lat + ',' + moved.lng);
+    const pinned = S.updateProperty(added.id, { direccion: 'Tercera Calle 8', lat: 21.5, lng: -100.5 })
+      .filter((p) => p.id === added.id)[0];
+    t.check('typing coordinates while editing overrides the geocoder', Number(pinned.lat) === 21.5 && Number(pinned.lng) === -100.5);
+
+    const relocated = S.relocateAllPins();
+    t.check('relocateAllPins (admin) re-runs the pass on demand and reports counts',
+      relocated.updated > 0 && typeof relocated.kept === 'number', JSON.stringify(relocated));
+  }
 };

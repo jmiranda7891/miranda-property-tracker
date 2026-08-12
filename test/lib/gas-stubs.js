@@ -89,6 +89,8 @@ function loadServer(props) {
   const store = Object.assign({}, props || {});
   const currentEmail = { v: 'admin@example.com' };
   const spreadsheetApp = makeSpreadsheetApp();
+  const geocodeCalls = [];
+  const geocodeFn = { v: null };
   const sandbox = {
     Logger: { log() {} },
     PropertiesService: {
@@ -106,12 +108,33 @@ function loadServer(props) {
     HtmlService: {
       createTemplateFromFile: () => ({ evaluate: () => ({ setTitle: () => ({ addMetaTag: () => ({}) }) }) }),
       createHtmlOutputFromFile: () => ({ getContent: () => '' })
+    },
+    // Fake of the built-in Maps geocoding service. Default answers ZERO_RESULTS (properties
+    // keep whatever coordinates they have); a test overrides via __setGeocode(fn) where fn
+    // receives (query, region) and returns {lat, lng} or null. __geocodeCalls records every
+    // query so tests can assert how many lookups a code path actually performed.
+    Maps: {
+      newGeocoder: function () {
+        var region = '';
+        return {
+          setRegion: function (r) { region = r; return this; },
+          geocode: function (query) {
+            geocodeCalls.push({ query: query, region: region });
+            var hit = geocodeFn.v ? geocodeFn.v(query, region) : null;
+            return hit
+              ? { status: 'OK', results: [{ geometry: { location: { lat: hit.lat, lng: hit.lng } } }] }
+              : { status: 'ZERO_RESULTS', results: [] };
+          }
+        };
+      }
     }
   };
   vm.createContext(sandbox);
   new vm.Script(fs.readFileSync(path.join(REPO, 'Code.js'), 'utf8'), { filename: 'Code.js' }).runInContext(sandbox);
   sandbox.__setUser = (email) => { currentEmail.v = email; };
   sandbox.__spreadsheetApp = spreadsheetApp;
+  sandbox.__setGeocode = (fn) => { geocodeFn.v = fn; };
+  sandbox.__geocodeCalls = geocodeCalls;
   return sandbox;
 }
 

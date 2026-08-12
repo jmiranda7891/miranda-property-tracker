@@ -99,6 +99,7 @@ function ensureRegistry_() {
       var existing = SpreadsheetApp.openById(id);
       migrateSchemaV2_(existing);
       fixLatLngV1_(existing);
+      regeocodeAllV1_(existing);
       return existing;
     } catch (e) { /* recreate below */ }
   }
@@ -119,6 +120,7 @@ function ensureRegistry_() {
   seedIntoRegistry_(ss, me || 'system');
   migrateSchemaV2_(ss); // no-op on a fresh install - SEED_PROPERTIES_ already seeds the new shape
   fixLatLngV1_(ss); // ditto - a fresh install already has the corrected coordinates
+  regeocodeAllV1_(ss); // one-time: replace the hand-estimated pins with real geocoder output
   return ss;
 }
 
@@ -149,6 +151,98 @@ function fixLatLngV1_(ss) {
     sh.getRange(r + 1, idx.lng + 1).setValue(fix.lng);
   }
   setProp_('LATLNG_FIX_V1_DONE', 'true');
+}
+
+// ============================ Geocoding (built-in Maps service) ============================
+// Apps Script's Maps.newGeocoder() is Google's geocoder exposed as a NATIVE service: no API
+// key, no billing account, no oauth scope - just a free daily quota (~1,000 lookups/day,
+// far beyond this app's needs). This replaced hand-entered coordinates as the way pins get
+// placed: addProperty/updateProperty geocode the address automatically, and manual lat/lng
+// entry survives only as an optional override. Every call is wrapped so a quota hit or
+// service failure degrades to "no pin" instead of breaking the save.
+//
+// The bounds check guards against the classic geocoder failure mode for sparse rural
+// addresses ("El Gigante", "Salida Salvatierra"): a confident match on the wrong continent.
+// A result outside the property's own country is treated as a miss so the city-level
+// fallback runs instead.
+var COUNTRY_BOUNDS_ = {
+  MX: { latMin: 14, latMax: 33.5, lngMin: -119, lngMax: -85 },
+  US: { latMin: 24, latMax: 50, lngMin: -125, lngMax: -66 }
+};
+function inCountryBounds_(countryCode, lat, lng) {
+  var b = COUNTRY_BOUNDS_[countryCode];
+  if (!b) return true;
+  return lat >= b.latMin && lat <= b.latMax && lng >= b.lngMin && lng <= b.lngMax;
+}
+function geocodeOnce_(query, countryCode) {
+  try {
+    var res = Maps.newGeocoder().setRegion(countryCode === 'US' ? 'us' : 'mx').geocode(query);
+    if (res && res.status === 'OK' && res.results && res.results.length) {
+      var loc = res.results[0].geometry.location;
+      if (inCountryBounds_(countryCode, loc.lat, loc.lng)) return { lat: loc.lat, lng: loc.lng };
+    }
+  } catch (e) { Logger.log('geocode failed for "' + query + '": ' + e); }
+  return null;
+}
+// Full address first; if that misses (or lands out of country), fall back to the city -
+// same town-center-level precision the rural parcels have always had, but automatic.
+function geocodeProperty_(p) {
+  var country = p.countryCode === 'US' ? 'USA' : 'Mexico';
+  function q(parts) {
+    var s = parts.filter(function (x) { return !!String(x == null ? '' : x).trim(); }).join(', ');
+    return s;
+  }
+  var full = q([p.direccion, p.ciudad, p.estado, p.cp, country]);
+  var hit = full ? geocodeOnce_(full, p.countryCode) : null;
+  if (hit) return hit;
+  var city = q([p.ciudad, p.estado, country]);
+  return city && city !== full ? geocodeOnce_(city, p.countryCode) : null;
+}
+
+// One-time pass: re-locate EVERY property from its address, replacing the hand-estimated
+// coordinates the map launched with (several were off - a geocoder beats hand estimates for
+// anything with a real street address). Guarded like the other migrations; rows where
+// geocoding fails outright keep whatever coordinates they had. relocateAllPins() below is
+// the admin-callable re-run of the same pass.
+function regeocodeAll_(ss) {
+  var sh = ss.getSheetByName('Properties');
+  if (!sh) return { updated: 0, kept: 0 };
+  var vals = sh.getDataRange().getValues();
+  var head = vals[0];
+  var idx = {}; head.forEach(function (h, i) { idx[h] = i; });
+  if (idx.lat == null || idx.lng == null) return { updated: 0, kept: 0 };
+  var updated = 0, kept = 0;
+  for (var r = 1; r < vals.length; r++) {
+    var row = vals[r];
+    var hit = geocodeProperty_({
+      countryCode: String(row[idx.countryCode] || ''), direccion: String(row[idx.direccion] || ''),
+      ciudad: String(row[idx.ciudad] || ''), estado: String(row[idx.estado] || ''), cp: String(row[idx.cp] || '')
+    });
+    if (hit) {
+      sh.getRange(r + 1, idx.lat + 1).setValue(hit.lat);
+      sh.getRange(r + 1, idx.lng + 1).setValue(hit.lng);
+      updated++;
+    } else {
+      kept++;
+    }
+  }
+  return { updated: updated, kept: kept };
+}
+function regeocodeAllV1_(ss) {
+  if (prop_('GEOCODE_ALL_V1_DONE') === 'true') return;
+  regeocodeAll_(ss);
+  setProp_('GEOCODE_ALL_V1_DONE', 'true');
+}
+
+// Admin-callable re-run (Admin panel button): re-locates every pin from its current address.
+// Useful after fixing a batch of addresses, or if the one-time pass ran while the geocoder
+// was unavailable.
+function relocateAllPins() {
+  requireAdmin_();
+  var result = regeocodeAll_(ss_());
+  bustReg_();
+  audit_(getUserEmail(), 'relocate_pins', 'property', 'bulk', result);
+  return result;
 }
 
 // Schema v2: escrituras is now Si/No only (ejido tenure moved to its own esEjido flag), status
@@ -384,13 +478,17 @@ function addProperty(form) {
     precioEstimadoIsPlaceholder: false,
     escrituras: escrituras, esEjido: !!form.esEjido, propEscriturado: String(form.propEscriturado || ''),
     propuestaTraspaso: '', planLargoPlazo: planLargoPlazo, pin: String(form.pin || ''),
-    // No runtime geocoding - lat/lng is an ordinary editable field (see EDITABLE_FIELDS_),
-    // so a new property has no map pin until one is entered by hand, here or via updateProperty.
+    // Manually typed coordinates win; otherwise the address is geocoded automatically
+    // (falling back to city-level, then to no pin if the geocoder finds nothing).
     lat: form.lat !== undefined && form.lat !== '' ? Number(form.lat) : '',
     lng: form.lng !== undefined && form.lng !== '' ? Number(form.lng) : '',
     aiResearchEN: '', aiResearchES: '', aiValueEstimateEN: '', aiValueEstimateES: '', researchDate: '',
     archived: false, archivedReason: '', createdBy: me, createdAt: now, updatedBy: me, updatedAt: now
   };
+  if (row.lat === '' || row.lng === '') {
+    var geo = geocodeProperty_(row);
+    if (geo) { row.lat = geo.lat; row.lng = geo.lng; }
+  }
   appendObj_(ss_().getSheetByName('Properties'), row);
   bustReg_();
   audit_(me, 'add_property', 'property', id, row);
@@ -412,6 +510,25 @@ function updateProperty(id, form) {
       if (c >= 0) sh.getRange(found.row, c + 1).setValue(form[k]);
     }
   });
+  // Re-geocode when the coordinates were left blank, or when the address changed and the
+  // coordinates came back untouched (the form prefills them, so "untouched" means the user
+  // edited the address expecting the pin to follow). Coordinates the user actually typed win.
+  function eff_(k) { return Object.prototype.hasOwnProperty.call(form, k) ? form[k] : before[k]; }
+  var addressChanged = ['direccion', 'ciudad', 'estado', 'cp', 'countryCode'].some(function (k) {
+    return Object.prototype.hasOwnProperty.call(form, k) && String(form[k]) !== String(before[k]);
+  });
+  var latBlank = form.lat === undefined || form.lat === '';
+  var coordsUntouched = !latBlank && Number(form.lat) === Number(before.lat) && Number(form.lng) === Number(before.lng);
+  if (latBlank || (addressChanged && coordsUntouched)) {
+    var geo = geocodeProperty_({
+      countryCode: String(eff_('countryCode') || ''), direccion: String(eff_('direccion') || ''),
+      ciudad: String(eff_('ciudad') || ''), estado: String(eff_('estado') || ''), cp: String(eff_('cp') || '')
+    });
+    if (geo) {
+      sh.getRange(found.row, head.indexOf('lat') + 1).setValue(geo.lat);
+      sh.getRange(found.row, head.indexOf('lng') + 1).setValue(geo.lng);
+    }
+  }
   var me = getUserEmail();
   var uCol = head.indexOf('updatedBy'), tCol = head.indexOf('updatedAt');
   sh.getRange(found.row, uCol + 1).setValue(me);

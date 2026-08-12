@@ -44,7 +44,9 @@ function apiSourceFor(role) {
       unarchiveProperty: function (id) { return SAMPLE_PROPS; },
       deleteProperty: function (id, ref) { return SAMPLE_PROPS; },
       saveUser: function (email, role) { return [{ email: 'admin@example.com', role: 'admin' }]; },
-      removeUser: function (email) { return [{ email: 'admin@example.com', role: 'admin' }]; }
+      removeUser: function (email) { return [{ email: 'admin@example.com', role: 'admin' }]; },
+      listProperties: function () { return SAMPLE_PROPS; },
+      relocateAllPins: function () { return { updated: SAMPLE_PROPS.length, kept: 0 }; }
     };
   `;
 }
@@ -272,6 +274,28 @@ module.exports = async function run(t) {
     const latVal = await page.locator('#f_lat').inputValue();
     const lngVal = await page.locator('#f_lng').inputValue();
     t.check('the edit form prefills the existing lat/lng', parseFloat(latVal) === 19.8942 && parseFloat(lngVal) === -100.4436, latVal + ',' + lngVal);
+    const hint = await page.locator('.field-group:has(#f_lat) p').textContent();
+    t.check('the form explains coordinates are automatic (manual entry is the override)',
+      hint.includes('automáticamente') || hint.includes('automatically'), hint);
+    await page.close();
+  }
+
+  t.group('admin re-locate all pins');
+  {
+    const page = await browser.newPage();
+    t.watch(page);
+    const url = writePage('client-relocate.html', buildPage({ apiSource: apiSourceFor('admin') }));
+    await page.goto(url);
+    await page.waitForTimeout(150);
+    await page.click('button:has-text("⚙")');
+    await page.waitForTimeout(100);
+    const btn = page.locator('.modal-footer button:has-text("Reubicar"), .modal-footer button:has-text("Re-locate")');
+    t.check('the Admin panel offers a re-locate-all-pins button', (await btn.count()) === 1);
+    await btn.click();
+    await page.waitForTimeout(150);
+    const calls = await page.evaluate(() => window.CALLS);
+    t.check('clicking it calls relocateAllPins then refreshes the list',
+      calls.includes('relocateAllPins') && calls.indexOf('listProperties') > calls.indexOf('relocateAllPins'), calls.join(','));
     await page.close();
   }
 
