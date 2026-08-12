@@ -98,6 +98,7 @@ function ensureRegistry_() {
     try {
       var existing = SpreadsheetApp.openById(id);
       migrateSchemaV2_(existing);
+      fixLatLngV1_(existing);
       return existing;
     } catch (e) { /* recreate below */ }
   }
@@ -117,7 +118,37 @@ function ensureRegistry_() {
   // safe no-op if ever called again by hand.
   seedIntoRegistry_(ss, me || 'system');
   migrateSchemaV2_(ss); // no-op on a fresh install - SEED_PROPERTIES_ already seeds the new shape
+  fixLatLngV1_(ss); // ditto - a fresh install already has the corrected coordinates
   return ss;
+}
+
+// A one-time, separately-flagged correction pass for a handful of pin coordinates that were
+// wrong in the first map release (hand-estimated, not from a real geocoder) - unlike
+// migrateSchemaV2_'s lat/lng backfill (which only fills a BLANK cell), this force-overwrites
+// lat/lng for exactly the referencias named below, regardless of what's currently there,
+// since those rows already had a (wrong) value from the earlier deploy. Everything else is
+// untouched. See CLAUDE.md "Map pin corrections" for where each corrected value came from.
+var LATLNG_FIXES_V1_ = {
+  'Estacionamiento P443': { lat: 41.891032, lng: -87.642232 },
+  'Estacionamiento P52': { lat: 41.891032, lng: -87.642232 },
+  'Dpto. Prairie': { lat: 41.8671, lng: -87.6216 },
+  'Dpto. Cancun': { lat: 21.1450, lng: -86.8030 }
+};
+function fixLatLngV1_(ss) {
+  if (prop_('LATLNG_FIX_V1_DONE') === 'true') return;
+  var sh = ss.getSheetByName('Properties');
+  if (!sh) return;
+  var vals = sh.getDataRange().getValues();
+  var head = vals[0];
+  var idx = {}; head.forEach(function (h, i) { idx[h] = i; });
+  if (idx.lat == null || idx.lng == null) { setProp_('LATLNG_FIX_V1_DONE', 'true'); return; }
+  for (var r = 1; r < vals.length; r++) {
+    var fix = LATLNG_FIXES_V1_[String(vals[r][idx.referencia] || '')];
+    if (!fix) continue;
+    sh.getRange(r + 1, idx.lat + 1).setValue(fix.lat);
+    sh.getRange(r + 1, idx.lng + 1).setValue(fix.lng);
+  }
+  setProp_('LATLNG_FIX_V1_DONE', 'true');
 }
 
 // Schema v2: escrituras is now Si/No only (ejido tenure moved to its own esEjido flag), status
@@ -326,7 +357,7 @@ function listProperties() {
 var EDITABLE_FIELDS_ = [
   'countryCode', 'paisRaw', 'tipo', 'referencia', 'propietario', 'direccion', 'ciudad', 'estado', 'cp',
   'observacionesRaw', 'status', 'precioEstimadoUSD', 'precioEstimadoIsPlaceholder',
-  'escrituras', 'esEjido', 'propEscriturado', 'planLargoPlazo', 'pin'
+  'escrituras', 'esEjido', 'propEscriturado', 'planLargoPlazo', 'pin', 'lat', 'lng'
 ];
 
 function addProperty(form) {
@@ -353,7 +384,10 @@ function addProperty(form) {
     precioEstimadoIsPlaceholder: false,
     escrituras: escrituras, esEjido: !!form.esEjido, propEscriturado: String(form.propEscriturado || ''),
     propuestaTraspaso: '', planLargoPlazo: planLargoPlazo, pin: String(form.pin || ''),
-    lat: '', lng: '', // no runtime geocoding - set by hand later if this property needs a map pin
+    // No runtime geocoding - lat/lng is an ordinary editable field (see EDITABLE_FIELDS_),
+    // so a new property has no map pin until one is entered by hand, here or via updateProperty.
+    lat: form.lat !== undefined && form.lat !== '' ? Number(form.lat) : '',
+    lng: form.lng !== undefined && form.lng !== '' ? Number(form.lng) : '',
     aiResearchEN: '', aiResearchES: '', aiValueEstimateEN: '', aiValueEstimateES: '', researchDate: '',
     archived: false, archivedReason: '', createdBy: me, createdAt: now, updatedBy: me, updatedAt: now
   };
@@ -852,8 +886,8 @@ var SEED_PROPERTIES_ = [
     "aiValueEstimateES": "$750,000 por un departamento en una torre como Cancún Towers parece creíble pero en la parte baja para el mercado actual de Cancún, donde una unidad de tamaño medio incluso fuera de las zonas más caras suele costar millones de pesos bajos; vale la pena confirmar el tamaño y si el precio refleja un listado antiguo.",
     "esEjido": false,
     "planLargoPlazo": "mantener_individual",
-    "lat": 21.1743,
-    "lng": -86.8466
+    "lat": 21.145,
+    "lng": -86.803
   },
   {
     "countryCode": "MX",
@@ -1428,8 +1462,8 @@ var SEED_PROPERTIES_ = [
     "escrituras": "No",
     "esEjido": false,
     "planLargoPlazo": "mantener_individual",
-    "lat": 41.8886,
-    "lng": -87.6412
+    "lat": 41.891032,
+    "lng": -87.642232
   },
   {
     "countryCode": "US",
@@ -1521,8 +1555,8 @@ var SEED_PROPERTIES_ = [
     "escrituras": "No",
     "esEjido": false,
     "planLargoPlazo": "mantener_individual",
-    "lat": 41.8583,
-    "lng": -87.6189
+    "lat": 41.8671,
+    "lng": -87.6216
   },
   {
     "countryCode": "US",
@@ -1570,8 +1604,8 @@ var SEED_PROPERTIES_ = [
     "escrituras": "No",
     "esEjido": false,
     "planLargoPlazo": "mantener_individual",
-    "lat": 41.8886,
-    "lng": -87.6412
+    "lat": 41.891032,
+    "lng": -87.642232
   }
 ];
 

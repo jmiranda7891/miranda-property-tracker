@@ -101,5 +101,18 @@ module.exports = async function run(t) {
     t.check('every seed row has lat/lng for the map view', seed.every((p) => typeof p.lat === 'number' && typeof p.lng === 'number'));
     const ejidoCount = seed.filter((p) => p.esEjido).length;
     t.check('at least one property is flagged as ejido land', ejidoCount > 0, 'got ' + ejidoCount);
+
+    t.group('seed data - corrected map pins stay in sync with LATLNG_FIXES_V1_');
+    const fixMatch = code.match(/var LATLNG_FIXES_V1_ = (\{[\s\S]*?\n\});/);
+    t.check('LATLNG_FIXES_V1_ found', !!fixMatch);
+    if (fixMatch) {
+      const fixes = new Function('return ' + fixMatch[1])();
+      Object.keys(fixes).forEach((ref) => {
+        const p = seed.filter((x) => x.referencia === ref)[0];
+        t.check('SEED_PROPERTIES_ "' + ref + '" already carries its corrected coordinates',
+          !!p && Math.abs(p.lat - fixes[ref].lat) < 0.0001 && Math.abs(p.lng - fixes[ref].lng) < 0.0001,
+          p ? p.lat + ',' + p.lng : 'not found');
+      });
+    }
   }
 };

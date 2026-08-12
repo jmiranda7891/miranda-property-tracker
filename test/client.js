@@ -228,6 +228,50 @@ module.exports = async function run(t) {
     const markers = await page.evaluate(() => window.__markers.map((m) => ({ latlng: m.latlng, popup: m.popup })));
     t.check('one marker per property with coordinates', markers.length === 2, JSON.stringify(markers.map((m) => m.latlng)));
     t.check('a marker popup links back to the same detail modal', markers.some((m) => m.popup.includes('Casa Test') && m.popup.includes("MPT.openDetail('p1')")), JSON.stringify(markers));
+
+    // The actual bug: Leaflet assigns its internal panes/controls z-index up to 1000, and
+    // .leaflet-container doesn't establish its own stacking context by default, so those
+    // values used to leak above .modal-backdrop (z-index 50) and paint the map over an open
+    // modal. The fix is .map-container getting its OWN stacking context (position+z-index) so
+    // Leaflet's internal z-index values stay contained regardless of how high they are.
+    const mapContainerStyle = await page.locator('#mapContainer').evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return { position: cs.position, zIndex: cs.zIndex };
+    });
+    t.check('#mapContainer establishes its own stacking context (position set, z-index not auto)',
+      mapContainerStyle.position !== 'static' && mapContainerStyle.zIndex !== 'auto', JSON.stringify(mapContainerStyle));
+
+    // Fake Leaflet renders no real clickable pins, so open the detail modal directly (this is
+    // exactly what a real pin's popup link does under the hood) while Map view stays active.
+    await page.evaluate(() => window.MPT.openDetail('p1'));
+    await page.waitForTimeout(50);
+    const stackOrder = await page.evaluate(() => {
+      const modal = document.querySelector('.modal-backdrop');
+      const map = document.getElementById('mapContainer');
+      if (!modal || !map) return null;
+      const modalZ = parseInt(getComputedStyle(modal).zIndex, 10) || 0;
+      const mapZ = parseInt(getComputedStyle(map).zIndex, 10) || 0;
+      return { modalZ, mapZ };
+    });
+    t.check('the modal backdrop\'s z-index is higher than the (now self-contained) map container\'s',
+      stackOrder && stackOrder.modalZ > stackOrder.mapZ, JSON.stringify(stackOrder));
+    await page.close();
+  }
+
+  t.group('lat/lng are editable (map pin self-service fix)');
+  {
+    const page = await browser.newPage();
+    t.watch(page);
+    const url = writePage('client-latlng.html', buildPage({ apiSource: apiSourceFor('admin') }));
+    await page.goto(url);
+    await page.waitForTimeout(150);
+    await page.click('.prop-card >> nth=0');
+    await page.waitForTimeout(50);
+    await page.click('button:has-text("Editar"), button:has-text("Edit")');
+    await page.waitForTimeout(50);
+    const latVal = await page.locator('#f_lat').inputValue();
+    const lngVal = await page.locator('#f_lng').inputValue();
+    t.check('the edit form prefills the existing lat/lng', parseFloat(latVal) === 19.8942 && parseFloat(lngVal) === -100.4436, latVal + ',' + lngVal);
     await page.close();
   }
 

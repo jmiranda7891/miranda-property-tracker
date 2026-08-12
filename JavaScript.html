@@ -24,6 +24,7 @@
       reference: 'Reference', type: 'Type', owners: 'Beneficial Owner', address: 'Address', city: 'City', state: 'State', zip: 'Zip',
       notes: 'Notes', status: 'Status', estimatedPrice: 'Estimated price (USD)', priceIsPlaceholder: 'Placeholder value, not a real estimate',
       deedStatus: 'Deed status (Si/No)', titledTo: 'Titled Name', esEjidoLabel: 'Ejido land', planLargoPlazoLbl: 'Long-term plan', parcelPin: 'Parcel PIN',
+      latLabel: 'Map latitude', lngLabel: 'Map longitude', mapPin: 'Map pin', mapPinHint: 'Optional - only needed for this property to appear on the Map view. Leave blank to show it as an ordinary Google Maps link only.',
       planMantener: 'Keep Individual', planFideicomiso: 'Transfer to Trust', planVender: 'Sell',
       yesWord: 'Yes', noWord: 'No',
       archivedYes: 'Archived', archivedBadge: 'ARCHIVED',
@@ -60,6 +61,7 @@
       reference: 'Referencia', type: 'Tipo', owners: 'Dueño Beneficiario', address: 'Dirección', city: 'Ciudad', state: 'Estado', zip: 'C.P.',
       notes: 'Observaciones', status: 'Estatus', estimatedPrice: 'Precio estimado (USD)', priceIsPlaceholder: 'Valor de relleno, no es una estimación real',
       deedStatus: 'Escrituras (Si/No)', titledTo: 'Nombre Escriturado', esEjidoLabel: 'Terreno ejidal', planLargoPlazoLbl: 'Plan a largo plazo', parcelPin: 'PIN de parcela',
+      latLabel: 'Latitud del mapa', lngLabel: 'Longitud del mapa', mapPin: 'Ubicación en el mapa', mapPinHint: 'Opcional - solo se necesita para que esta propiedad aparezca en la vista de Mapa. Déjalo en blanco para mostrar solo un enlace normal de Google Maps.',
       planMantener: 'Mantener Individual', planFideicomiso: 'Traspasar a Fideicomiso', planVender: 'Vender',
       yesWord: 'Sí', noWord: 'No',
       archivedYes: 'Archivada', archivedBadge: 'ARCHIVADA',
@@ -395,6 +397,7 @@
       '</div>' +
       '<div class="field-group"><h4>' + esc(t('location')) + '</h4>' +
       kv(t('address'), p.direccion) + kv(t('city'), p.ciudad) + kv(t('state'), p.estado) + kv(t('zip'), p.cp) +
+      (p.lat != null && p.lng != null ? kv(t('mapPin'), p.lat.toFixed(5) + ', ' + p.lng.toFixed(5)) : '') +
       '<a class="maps-link" target="_blank" href="' + mapsLink(p) + '">📍 ' + esc(t('openInMaps')) + '</a>' +
       '</div>' +
       '<div class="field-group"><h4>' + esc(t('statusValue')) + '</h4>' +
@@ -476,6 +479,8 @@
       '<div class="field-group"><h4>' + esc(t('location')) + '</h4>' +
       '<div class="field-row">' + fld('f_direccion', t('address'), p.direccion) + '</div>' +
       '<div class="field-row">' + fld('f_ciudad', t('city'), p.ciudad) + fld('f_estado', t('state'), p.estado) + fld('f_cp', t('zip'), p.cp) + '</div>' +
+      '<div class="field-row">' + fld('f_lat', t('latLabel'), p.lat, 'number') + fld('f_lng', t('lngLabel'), p.lng, 'number') + '</div>' +
+      '<p style="color:var(--text-muted);font-size:.75rem">' + esc(t('mapPinHint')) + '</p>' +
       '</div>' +
       '<div class="field-group"><h4>' + esc(t('statusValue')) + '</h4>' +
       '<div class="field-row">' + fld('f_precioEstimadoUSD', t('estimatedPrice'), p.precioEstimadoUSD, 'number') + '</div>' +
@@ -504,7 +509,7 @@
       propietario: v('f_propietario'), direccion: v('f_direccion'), ciudad: v('f_ciudad'), estado: v('f_estado'), cp: v('f_cp'),
       precioEstimadoUSD: v('f_precioEstimadoUSD'), observacionesRaw: v('f_observacionesRaw'),
       escrituras: v('f_escrituras'), esEjido: checked('f_esEjido'), propEscriturado: v('f_propEscriturado'),
-      planLargoPlazo: v('f_planLargoPlazo'), pin: v('f_pin')
+      planLargoPlazo: v('f_planLargoPlazo'), pin: v('f_pin'), lat: v('f_lat'), lng: v('f_lng')
     };
   }
 

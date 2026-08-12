@@ -169,4 +169,40 @@ module.exports = async function run(t) {
     const freshRow = (name) => fresh[idx[name]];
     t.check('an already-new-shape row is left untouched by the migration', freshRow('status') === 'en_uso' && freshRow('escrituras') === 'Si');
   }
+
+  t.group('map pin corrections (LATLNG_FIX_V1)');
+  {
+    // Simulates a live sheet already seeded under the wrong (hand-estimated) v1.2 coordinates,
+    // then confirms the one-time correction pass fixes exactly the named properties and
+    // leaves every other row's coordinates untouched.
+    const S = loadServer();
+    S.__setUser('admin@example.com');
+    const boot = S.getBootstrap();
+    const ssId = Object.keys(S.__spreadsheetApp.__registry)[0];
+    const ss = S.__spreadsheetApp.__registry[ssId];
+    const sh = ss.getSheetByName('Properties');
+    const vals0 = sh.getDataRange().getValues();
+    const head0 = vals0[0];
+    const idx0 = {}; head0.forEach((x, i) => { idx0[x] = i; });
+    const oldWrongCoord = 41.0; // stand-in "wrong" value distinct from any real corrected one
+    const targetRow = vals0.findIndex((r) => r[idx0.referencia] === 'Dpto. Prairie');
+    sh.getRange(targetRow + 1, idx0.lat + 1).setValue(oldWrongCoord);
+    const untouchedBefore = vals0.find((r) => r[idx0.referencia] === 'Casa Maravatio')[idx0.lat];
+
+    S.setProp_('LATLNG_FIX_V1_DONE', '');
+    S.bustReg_();
+    S.getBootstrap();
+
+    const vals1 = sh.getDataRange().getValues();
+    const idx1 = {}; vals1[0].forEach((x, i) => { idx1[x] = i; });
+    const fixedRow = vals1.find((r) => r[idx1.referencia] === 'Dpto. Prairie');
+    t.check('the corrected referencia gets the new coordinates', Math.abs(fixedRow[idx1.lat] - 41.8671) < 0.0001, fixedRow[idx1.lat]);
+    const otherRow = vals1.find((r) => r[idx1.referencia] === 'Casa Maravatio');
+    t.check('an uncorrected referencia is untouched', otherRow[idx1.lat] === untouchedBefore, otherRow[idx1.lat]);
+
+    const targetId = boot.properties.filter((p) => p.referencia === 'Dpto. Prairie')[0].id;
+    const updated = S.updateProperty(targetId, { lat: 10, lng: 20 });
+    const afterUpdate = updated.filter((p) => p.id === targetId)[0];
+    t.check('updateProperty can change lat/lng', Number(afterUpdate.lat) === 10 && Number(afterUpdate.lng) === 20);
+  }
 };
