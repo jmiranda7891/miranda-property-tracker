@@ -174,59 +174,108 @@ function inCountryBounds_(countryCode, lat, lng) {
   if (!b) return true;
   return lat >= b.latMin && lat <= b.latMax && lng >= b.lngMin && lng <= b.lngMax;
 }
+// A unit/apartment number embedded in the street field ("1211 S. Prairie St, Unit 2201")
+// is a well-known geocoder confuser - stripping it before the query is sent (never touching
+// the stored `direccion`, which still displays the unit to a human) measurably improves
+// street-level hits. Deliberately does NOT touch "Fracc." (fraccionamiento) - that's
+// meaningful neighborhood context in Mexican addresses, not unit noise.
+var UNIT_NOISE_RE_ = /,?\s*\b(Unit|Uni|Apt|Apto|Dpto\.?|Depto\.?|Suite|Ste)\.?\s*[\w-]*/gi;
+function stripUnitNoise_(s) {
+  return String(s || '')
+    .replace(UNIT_NOISE_RE_, '')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/,\s*,/g, ',')
+    .replace(/^[,\s]+|[,\s]+$/g, '');
+}
+
+// Returns {lat, lng, status, query} - lat/lng are null on any kind of miss, and `status` is
+// always populated (the geocoder's own status string, or a descriptive local one) so a
+// caller can tell "no result for this address" apart from "the service call itself failed."
 function geocodeOnce_(query, countryCode) {
+  if (!query) return { lat: null, lng: null, status: 'NO_QUERY', query: query };
   try {
     var res = Maps.newGeocoder().setRegion(countryCode === 'US' ? 'us' : 'mx').geocode(query);
-    if (res && res.status === 'OK' && res.results && res.results.length) {
+    var status = (res && res.status) || 'UNKNOWN_RESPONSE';
+    if (status === 'OK' && res.results && res.results.length) {
       var loc = res.results[0].geometry.location;
-      if (inCountryBounds_(countryCode, loc.lat, loc.lng)) return { lat: loc.lat, lng: loc.lng };
+      if (inCountryBounds_(countryCode, loc.lat, loc.lng)) {
+        return { lat: loc.lat, lng: loc.lng, status: 'OK', query: query };
+      }
+      status = 'OUT_OF_BOUNDS';
     }
-  } catch (e) { Logger.log('geocode failed for "' + query + '": ' + e); }
-  return null;
+    return { lat: null, lng: null, status: status, query: query };
+  } catch (e) {
+    Logger.log('geocode failed for "' + query + '": ' + e);
+    return { lat: null, lng: null, status: 'ERROR: ' + e, query: query };
+  }
 }
-// Full address first; if that misses (or lands out of country), fall back to the city -
-// same town-center-level precision the rural parcels have always had, but automatic.
+// Full address first (unit noise stripped); if that misses (or lands out of country), fall
+// back to the city - same town-center-level precision the rural parcels have always had, but
+// automatic. Always returns which method actually produced the result (or the last-tried
+// status/query, if neither did), for the diagnostics in regeocodeAll_.
 function geocodeProperty_(p) {
   var country = p.countryCode === 'US' ? 'USA' : 'Mexico';
   function q(parts) {
-    var s = parts.filter(function (x) { return !!String(x == null ? '' : x).trim(); }).join(', ');
-    return s;
+    return parts.filter(function (x) { return !!String(x == null ? '' : x).trim(); }).join(', ');
   }
-  var full = q([p.direccion, p.ciudad, p.estado, p.cp, country]);
-  var hit = full ? geocodeOnce_(full, p.countryCode) : null;
-  if (hit) return hit;
+  var full = q([stripUnitNoise_(p.direccion), p.ciudad, p.estado, p.cp, country]);
+  var attemptFull = geocodeOnce_(full, p.countryCode);
+  // addressStatus/addressQuery are ALWAYS the address-level attempt's own outcome, even when a
+  // city fallback goes on to succeed - otherwise a real problem with the address itself (a
+  // geocoder exception, a bad query) is invisible whenever the city fallback happens to work,
+  // which defeats the point of surfacing this for diagnosis.
+  if (attemptFull.lat != null) {
+    return { lat: attemptFull.lat, lng: attemptFull.lng, method: 'address', status: 'OK', query: full, addressStatus: 'OK', addressQuery: full };
+  }
+
   var city = q([p.ciudad, p.estado, country]);
-  return city && city !== full ? geocodeOnce_(city, p.countryCode) : null;
+  var attemptCity = (city && city !== full) ? geocodeOnce_(city, p.countryCode) : { lat: null, lng: null, status: 'NO_CITY', query: city };
+  if (attemptCity.lat != null) {
+    return { lat: attemptCity.lat, lng: attemptCity.lng, method: 'city', status: 'OK', query: city, addressStatus: attemptFull.status, addressQuery: full };
+  }
+
+  return { lat: null, lng: null, method: 'none', status: attemptFull.status, query: attemptFull.query, addressStatus: attemptFull.status, addressQuery: full };
 }
 
 // One-time pass: re-locate EVERY property from its address, replacing the hand-estimated
 // coordinates the map launched with (several were off - a geocoder beats hand estimates for
 // anything with a real street address). Guarded like the other migrations; rows where
-// geocoding fails outright keep whatever coordinates they had. relocateAllPins() below is
-// the admin-callable re-run of the same pass.
+// geocoding fails outright keep whatever coordinates they had. Returns a per-property
+// `details` array (referencia, method used, geocoder status, before/after coordinates) so a
+// failure mode is VISIBLE instead of a silent "kept" count - this is what surfaces in the
+// Admin panel after clicking "Reubicar todos los pines". relocateAllPins() below is the
+// admin-callable re-run of the same pass.
 function regeocodeAll_(ss) {
   var sh = ss.getSheetByName('Properties');
-  if (!sh) return { updated: 0, kept: 0 };
+  if (!sh) return { updated: 0, kept: 0, details: [] };
   var vals = sh.getDataRange().getValues();
   var head = vals[0];
   var idx = {}; head.forEach(function (h, i) { idx[h] = i; });
-  if (idx.lat == null || idx.lng == null) return { updated: 0, kept: 0 };
-  var updated = 0, kept = 0;
+  if (idx.lat == null || idx.lng == null) return { updated: 0, kept: 0, details: [] };
+  var updated = 0, kept = 0, details = [];
   for (var r = 1; r < vals.length; r++) {
     var row = vals[r];
-    var hit = geocodeProperty_({
+    var before = { lat: row[idx.lat] === '' || row[idx.lat] == null ? null : Number(row[idx.lat]), lng: row[idx.lng] === '' || row[idx.lng] == null ? null : Number(row[idx.lng]) };
+    var result = geocodeProperty_({
       countryCode: String(row[idx.countryCode] || ''), direccion: String(row[idx.direccion] || ''),
       ciudad: String(row[idx.ciudad] || ''), estado: String(row[idx.estado] || ''), cp: String(row[idx.cp] || '')
     });
-    if (hit) {
-      sh.getRange(r + 1, idx.lat + 1).setValue(hit.lat);
-      sh.getRange(r + 1, idx.lng + 1).setValue(hit.lng);
+    var entry = {
+      referencia: String(row[idx.referencia] || ''), before: before, method: result.method,
+      status: result.status, query: result.query, addressStatus: result.addressStatus, addressQuery: result.addressQuery
+    };
+    if (result.lat != null) {
+      sh.getRange(r + 1, idx.lat + 1).setValue(result.lat);
+      sh.getRange(r + 1, idx.lng + 1).setValue(result.lng);
+      entry.after = { lat: result.lat, lng: result.lng };
       updated++;
     } else {
+      entry.after = before;
       kept++;
     }
+    details.push(entry);
   }
-  return { updated: updated, kept: kept };
+  return { updated: updated, kept: kept, details: details };
 }
 function regeocodeAllV1_(ss) {
   if (prop_('GEOCODE_ALL_V1_DONE') === 'true') return;
@@ -234,14 +283,15 @@ function regeocodeAllV1_(ss) {
   setProp_('GEOCODE_ALL_V1_DONE', 'true');
 }
 
-// Admin-callable re-run (Admin panel button): re-locates every pin from its current address.
-// Useful after fixing a batch of addresses, or if the one-time pass ran while the geocoder
-// was unavailable.
+// Admin-callable re-run (Admin panel button): re-locates every pin from its current address
+// and returns the full per-property diagnostic detail (see regeocodeAll_) so a failure is
+// visible in the UI, not just a silent count. Useful after fixing a batch of addresses, or
+// if the one-time pass ran while the geocoder was unavailable.
 function relocateAllPins() {
   requireAdmin_();
   var result = regeocodeAll_(ss_());
   bustReg_();
-  audit_(getUserEmail(), 'relocate_pins', 'property', 'bulk', result);
+  audit_(getUserEmail(), 'relocate_pins', 'property', 'bulk', { updated: result.updated, kept: result.kept });
   return result;
 }
 
@@ -487,7 +537,7 @@ function addProperty(form) {
   };
   if (row.lat === '' || row.lng === '') {
     var geo = geocodeProperty_(row);
-    if (geo) { row.lat = geo.lat; row.lng = geo.lng; }
+    if (geo.lat != null) { row.lat = geo.lat; row.lng = geo.lng; }
   }
   appendObj_(ss_().getSheetByName('Properties'), row);
   bustReg_();
@@ -524,7 +574,7 @@ function updateProperty(id, form) {
       countryCode: String(eff_('countryCode') || ''), direccion: String(eff_('direccion') || ''),
       ciudad: String(eff_('ciudad') || ''), estado: String(eff_('estado') || ''), cp: String(eff_('cp') || '')
     });
-    if (geo) {
+    if (geo.lat != null) {
       sh.getRange(found.row, head.indexOf('lat') + 1).setValue(geo.lat);
       sh.getRange(found.row, head.indexOf('lng') + 1).setValue(geo.lng);
     }

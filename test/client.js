@@ -46,7 +46,18 @@ function apiSourceFor(role) {
       saveUser: function (email, role) { return [{ email: 'admin@example.com', role: 'admin' }]; },
       removeUser: function (email) { return [{ email: 'admin@example.com', role: 'admin' }]; },
       listProperties: function () { return SAMPLE_PROPS; },
-      relocateAllPins: function () { return { updated: SAMPLE_PROPS.length, kept: 0 }; }
+      relocateAllPins: function () {
+        return {
+          updated: SAMPLE_PROPS.length, kept: 0,
+          details: SAMPLE_PROPS.map(function (p) {
+            return {
+              referencia: p.referencia, method: 'address', status: 'OK', query: p.direccion + ', ' + p.ciudad,
+              addressStatus: 'OK', addressQuery: p.direccion + ', ' + p.ciudad,
+              before: { lat: p.lat, lng: p.lng }, after: { lat: p.lat, lng: p.lng }
+            };
+          })
+        };
+      }
     };
   `;
 }
@@ -280,7 +291,7 @@ module.exports = async function run(t) {
     await page.close();
   }
 
-  t.group('admin re-locate all pins');
+  t.group('admin pins tab: diagnostics after re-locating');
   {
     const page = await browser.newPage();
     t.watch(page);
@@ -289,13 +300,20 @@ module.exports = async function run(t) {
     await page.waitForTimeout(150);
     await page.click('button:has-text("⚙")');
     await page.waitForTimeout(100);
-    const btn = page.locator('.modal-footer button:has-text("Reubicar"), .modal-footer button:has-text("Re-locate")');
-    t.check('the Admin panel offers a re-locate-all-pins button', (await btn.count()) === 1);
+    await page.click('.admin-tabs button.tab:has-text("Pines"), .admin-tabs button.tab:has-text("Pins")');
+    await page.waitForTimeout(100);
+    const btn = page.locator('.modal-body button:has-text("Reubicar"), .modal-body button:has-text("Re-locate")');
+    t.check('the Pins tab offers a re-locate-all-pins button', (await btn.count()) === 1);
     await btn.click();
     await page.waitForTimeout(150);
     const calls = await page.evaluate(() => window.CALLS);
     t.check('clicking it calls relocateAllPins then refreshes the list',
       calls.includes('relocateAllPins') && calls.indexOf('listProperties') > calls.indexOf('relocateAllPins'), calls.join(','));
+    const rowCount = await page.locator('.modal-body table.admin-table tbody tr').count();
+    t.check('a diagnostic table row is shown per property after re-locating', rowCount === SAMPLE_PROPS.length, rowCount);
+    const firstRowText = await page.locator('.modal-body table.admin-table tbody tr').first().innerText();
+    t.check('a diagnostic row shows the property reference and the query that was sent',
+      firstRowText.includes(SAMPLE_PROPS[0].referencia), firstRowText);
     await page.close();
   }
 

@@ -260,4 +260,40 @@ module.exports = async function run(t) {
     t.check('relocateAllPins (admin) re-runs the pass on demand and reports counts',
       relocated.updated > 0 && typeof relocated.kept === 'number', JSON.stringify(relocated));
   }
+
+  t.group('geocoding diagnostics (surfaced in the Admin panel)');
+  {
+    const S = loadServer();
+    S.__setUser('admin@example.com');
+    S.__setGeocode((query) => {
+      if (query.includes('Broken Address 1')) throw new Error('simulated geocoder outage');
+      if (query.includes('No Match 2')) return null; // ZERO_RESULTS
+      if (query.startsWith('Morelia')) return { lat: 19.7008, lng: -101.1844 };
+      return { lat: 19.7001, lng: -101.1001 };
+    });
+    S.getBootstrap();
+
+    const good = S.addProperty({ referencia: 'Diag Good', direccion: 'Working Address 3', ciudad: 'Morelia', estado: 'Michoacan', countryCode: 'MX' });
+    const relocated1 = S.relocateAllPins();
+    t.check('relocateAllPins returns a details array with one entry per property', Array.isArray(relocated1.details) && relocated1.details.length === good.length, relocated1.details && relocated1.details.length);
+    const goodEntry = relocated1.details.find((d) => d.referencia === 'Diag Good');
+    t.check('a successful geocode reports method+status+the query actually sent', goodEntry && goodEntry.method === 'address' && goodEntry.status === 'OK' && goodEntry.query.includes('Working Address 3'), JSON.stringify(goodEntry));
+    t.check('a successful geocode reports before/after coordinates', goodEntry && goodEntry.after.lat === 19.7001 && goodEntry.after.lng === -101.1001, JSON.stringify(goodEntry));
+
+    S.addProperty({ referencia: 'Diag Error', direccion: 'Broken Address 1', ciudad: 'Morelia', estado: 'Michoacan', countryCode: 'MX' });
+    S.addProperty({ referencia: 'Diag NoMatch', direccion: 'No Match 2', ciudad: 'Morelia', estado: 'Michoacan', countryCode: 'MX' });
+    const relocated2 = S.relocateAllPins();
+    const errorEntry = relocated2.details.find((d) => d.referencia === 'Diag Error');
+    t.check('a geocoder exception on the address attempt is reported even if a city fallback then succeeds',
+      errorEntry && errorEntry.method === 'city' && errorEntry.addressStatus.indexOf('ERROR') === 0, JSON.stringify(errorEntry));
+    const noMatchEntry = relocated2.details.find((d) => d.referencia === 'Diag NoMatch');
+    t.check('a genuine no-result falls back to the city and reports method "city"',
+      noMatchEntry && noMatchEntry.method === 'city' && noMatchEntry.status === 'OK', JSON.stringify(noMatchEntry));
+
+    t.check('geocodeProperty_ strips unit/apartment noise from the query before geocoding', (() => {
+      const calls = S.__geocodeCalls;
+      const unitCall = calls.find((c) => c.query.includes('1211 S. Prairie'));
+      return unitCall && !unitCall.query.includes('Unit');
+    })(), JSON.stringify(S.__geocodeCalls.filter((c) => c.query.includes('Prairie'))));
+  }
 };

@@ -26,6 +26,11 @@
       deedStatus: 'Deed status (Si/No)', titledTo: 'Titled Name', esEjidoLabel: 'Ejido land', planLargoPlazoLbl: 'Long-term plan', parcelPin: 'Parcel PIN',
       latLabel: 'Map latitude', lngLabel: 'Map longitude', mapPin: 'Map pin', mapPinHint: 'Optional - the map pin is located automatically from the address when you save. Type coordinates only to place the pin somewhere specific by hand.',
       relocatePins: 'Re-locate all pins', toastRelocated: 'Pins re-located from addresses: ',
+      pinsTab: 'Pins', pinsHint: 'Re-runs the geocoder for every property and shows exactly what it did, so a wrong pin can be diagnosed instead of guessed at.',
+      pinsRunning: 'Re-locating pins…', pinsUpdated: 'Updated', pinsKept: 'Kept',
+      pinsMethodAddress: 'Address', pinsMethodCity: 'City (fallback)', pinsMethodNone: 'Failed',
+      pinsColMethod: 'Method', pinsColStatus: 'Geocoder status', pinsColQuery: 'Query sent', pinsColCoords: 'Before → after',
+      pinsAddressAttemptFailed: 'Address attempt failed',
       planMantener: 'Keep Individual', planFideicomiso: 'Transfer to Trust', planVender: 'Sell',
       yesWord: 'Yes', noWord: 'No',
       archivedYes: 'Archived', archivedBadge: 'ARCHIVED',
@@ -64,6 +69,11 @@
       deedStatus: 'Escrituras (Si/No)', titledTo: 'Nombre Escriturado', esEjidoLabel: 'Terreno ejidal', planLargoPlazoLbl: 'Plan a largo plazo', parcelPin: 'PIN de parcela',
       latLabel: 'Latitud del mapa', lngLabel: 'Longitud del mapa', mapPin: 'Ubicación en el mapa', mapPinHint: 'Opcional - el pin del mapa se ubica automáticamente a partir de la dirección al guardar. Escribe coordenadas solo si quieres colocar el pin a mano en un punto específico.',
       relocatePins: 'Reubicar todos los pines', toastRelocated: 'Pines reubicados desde sus direcciones: ',
+      pinsTab: 'Pines', pinsHint: 'Vuelve a correr el geocodificador para cada propiedad y muestra exactamente qué hizo, para diagnosticar un pin incorrecto en vez de adivinar.',
+      pinsRunning: 'Reubicando pines…', pinsUpdated: 'Actualizados', pinsKept: 'Sin cambio',
+      pinsMethodAddress: 'Dirección', pinsMethodCity: 'Ciudad (respaldo)', pinsMethodNone: 'Falló',
+      pinsColMethod: 'Método', pinsColStatus: 'Estado del geocodificador', pinsColQuery: 'Consulta enviada', pinsColCoords: 'Antes → después',
+      pinsAddressAttemptFailed: 'Falló el intento con la dirección',
       planMantener: 'Mantener Individual', planFideicomiso: 'Traspasar a Fideicomiso', planVender: 'Vender',
       yesWord: 'Sí', noWord: 'No',
       archivedYes: 'Archivada', archivedBadge: 'ARCHIVADA',
@@ -97,6 +107,8 @@
     adminTab: 'users',
     adminUsers: null,
     adminAudit: null,
+    pinResults: null,
+    pinsRunning: false,
     toast: null,
     busy: false
   };
@@ -529,10 +541,10 @@
     var tabs = '<div class="admin-tabs">' +
       '<button class="tab' + (STATE.adminTab === 'users' ? ' active' : '') + '" onclick="MPT.setAdminTab(\'users\')">' + esc(t('users')) + '</button>' +
       '<button class="tab' + (STATE.adminTab === 'audit' ? ' active' : '') + '" onclick="MPT.setAdminTab(\'audit\')">' + esc(t('auditLog')) + '</button>' +
+      '<button class="tab' + (STATE.adminTab === 'pins' ? ' active' : '') + '" onclick="MPT.setAdminTab(\'pins\')">' + esc(t('pinsTab')) + '</button>' +
       '</div>';
-    var body = tabs + (STATE.adminTab === 'users' ? renderUsersTab() : renderAuditTab());
-    var footer = '<button class="btn btn-light" onclick="MPT.relocateAllPins()">' + esc(t('relocatePins')) + '</button>' +
-      '<button class="btn btn-light" onclick="MPT.closeModal()">' + esc(t('close')) + '</button>';
+    var body = tabs + (STATE.adminTab === 'users' ? renderUsersTab() : STATE.adminTab === 'audit' ? renderAuditTab() : renderPinsTab());
+    var footer = '<button class="btn btn-light" onclick="MPT.closeModal()">' + esc(t('close')) + '</button>';
     return modalHeader(t('admin')) + '<div class="modal-body">' + body + '</div><div class="modal-footer">' + footer + '</div>';
   }
 
@@ -557,6 +569,40 @@
       return '<tr><td>' + esc(a.ts) + '</td><td>' + esc(a.user) + '</td><td>' + esc(a.action) + '</td><td>' + esc(a.entityId) + '</td></tr>';
     }).join('');
     return '<table class="admin-table"><thead><tr><th>' + esc('Time') + '</th><th>' + esc('User') + '</th><th>' + esc('Action') + '</th><th>ID</th></tr></thead><tbody>' + rows + '</tbody></table>';
+  }
+
+  function coordsText_(c) {
+    return (c && c.lat != null) ? (Number(c.lat).toFixed(5) + ', ' + Number(c.lng).toFixed(5)) : '—';
+  }
+
+  function pinMethodLabel_(method) {
+    return method === 'address' ? t('pinsMethodAddress') : method === 'city' ? t('pinsMethodCity') : t('pinsMethodNone');
+  }
+
+  function renderPinsTab() {
+    var btn = '<button class="btn btn-primary btn-sm" onclick="MPT.relocateAllPins()"' + (STATE.pinsRunning ? ' disabled' : '') + '>' +
+      esc(STATE.pinsRunning ? t('pinsRunning') : t('relocatePins')) + '</button>';
+    var intro = '<p class="pins-hint">' + esc(t('pinsHint')) + '</p>';
+    if (!STATE.pinResults) return intro + btn;
+    var res = STATE.pinResults;
+    var summary = '<p class="pins-summary">' + esc(t('pinsUpdated')) + ': ' + res.updated + ' · ' + esc(t('pinsKept')) + ': ' + res.kept + '</p>';
+    var rows = (res.details || []).map(function (d) {
+      var rowCls = d.method === 'none' ? 'pin-fail' : (d.method === 'city' ? 'pin-warn' : 'pin-ok');
+      var addrNote = (d.addressStatus && d.addressStatus !== 'OK')
+        ? '<div class="pins-subnote">' + esc(t('pinsAddressAttemptFailed')) + ': ' + esc(d.addressStatus) + '</div>' : '';
+      return '<tr class="' + rowCls + '">' +
+        '<td>' + esc(d.referencia) + '</td>' +
+        '<td>' + esc(pinMethodLabel_(d.method)) + '</td>' +
+        '<td>' + esc(d.status) + addrNote + '</td>' +
+        '<td>' + esc(d.query || '') + '</td>' +
+        '<td>' + esc(coordsText_(d.before)) + ' → ' + esc(coordsText_(d.after)) + '</td>' +
+        '</tr>';
+    }).join('');
+    var table = '<div class="table-scroll"><table class="admin-table"><thead><tr>' +
+      '<th>' + esc(t('reference')) + '</th><th>' + esc(t('pinsColMethod')) + '</th><th>' + esc(t('pinsColStatus')) + '</th>' +
+      '<th>' + esc(t('pinsColQuery')) + '</th><th>' + esc(t('pinsColCoords')) + '</th>' +
+      '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+    return intro + btn + summary + table;
   }
 
   // ============================ Actions (exposed on window.MPT) ============================
@@ -671,12 +717,15 @@
       .withFailureHandler(onError).removeUser(email);
   };
   MPT.relocateAllPins = function () {
+    STATE.pinsRunning = true;
+    render();
     google.script.run.withSuccessHandler(function (res) {
-      // The pins moved server-side; refresh the whole list so the map reflects it.
+      STATE.pinResults = res;
+      STATE.pinsRunning = false;
       google.script.run.withSuccessHandler(function (list) {
         refreshProperties(list); render(); toast(t('toastRelocated') + res.updated);
       }).withFailureHandler(onError).listProperties();
-    }).withFailureHandler(onError).relocateAllPins();
+    }).withFailureHandler(function (err) { STATE.pinsRunning = false; render(); onError(err); }).relocateAllPins();
   };
 
   window.MPT = MPT;
