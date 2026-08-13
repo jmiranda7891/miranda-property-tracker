@@ -293,9 +293,11 @@
 
   // ============================ Map view (Leaflet + OpenStreetMap - no Google Maps key) ============================
   var MAP_INSTANCE_ = null;
-  // A small deterministic offset so properties that share one town-center coordinate (several
-  // Maravatío parcels, for instance) don't render as one indistinguishable stacked pin. Not
-  // stored anywhere - purely a display nudge, recomputed the same way every time from the id.
+  // A small deterministic offset applied ONLY when two or more properties share the exact same
+  // coordinate (several Maravatío parcels that fell back to one town-center point, for
+  // instance), so they don't render as one indistinguishable stacked pin. Never applied to a
+  // property with its own unique coordinate - a precisely geocoded street address must render
+  // exactly where the geocoder put it. Not stored anywhere - recomputed the same way every render.
   function jitter_(id) {
     var h = 0;
     for (var i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
@@ -308,14 +310,20 @@
     if (!container || typeof L === 'undefined') return;
     if (MAP_INSTANCE_) { MAP_INSTANCE_.remove(); MAP_INSTANCE_ = null; }
     var list = sortProperties(filteredProperties()).filter(function (p) { return p.lat != null && p.lng != null; });
+    var coordCounts = {};
+    list.forEach(function (p) {
+      var key = p.lat.toFixed(5) + ',' + p.lng.toFixed(5);
+      coordCounts[key] = (coordCounts[key] || 0) + 1;
+    });
     MAP_INSTANCE_ = L.map('mapContainer').setView([23.6, -102.5], 5);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors', maxZoom: 18
     }).addTo(MAP_INSTANCE_);
     var bounds = [];
     list.forEach(function (p) {
-      var j = jitter_(p.id);
-      var latlng = [p.lat + j[0], p.lng + j[1]];
+      var key = p.lat.toFixed(5) + ',' + p.lng.toFixed(5);
+      var shared = coordCounts[key] > 1;
+      var latlng = shared ? [p.lat + jitter_(p.id)[0], p.lng + jitter_(p.id)[1]] : [p.lat, p.lng];
       var popup = '<strong>' + esc(p.referencia) + '</strong><br>' + esc(p.ciudad) + ', ' + esc(p.estado) +
         '<br>' + fmtMoney(p.precioEstimadoUSD) +
         '<br><a href="#" onclick="MPT.openDetail(\'' + p.id + '\');return false;">' + esc(t('viewDetails')) + '</a>';

@@ -241,6 +241,10 @@ module.exports = async function run(t) {
     const markers = await page.evaluate(() => window.__markers.map((m) => ({ latlng: m.latlng, popup: m.popup })));
     t.check('one marker per property with coordinates', markers.length === 2, JSON.stringify(markers.map((m) => m.latlng)));
     t.check('a marker popup links back to the same detail modal', markers.some((m) => m.popup.includes('Casa Test') && m.popup.includes("MPT.openDetail('p1')")), JSON.stringify(markers));
+    t.check('a property with its own unique coordinate renders at the EXACT geocoded lat/lng, not nudged off by the shared-coordinate jitter',
+      markers.some((m) => m.latlng[0] === SAMPLE_PROPS[0].lat && m.latlng[1] === SAMPLE_PROPS[0].lng)
+      && markers.some((m) => m.latlng[0] === SAMPLE_PROPS[1].lat && m.latlng[1] === SAMPLE_PROPS[1].lng),
+      JSON.stringify(markers.map((m) => m.latlng)));
 
     // The actual bug: Leaflet assigns its internal panes/controls z-index up to 1000, and
     // .leaflet-container doesn't establish its own stacking context by default, so those
@@ -268,6 +272,29 @@ module.exports = async function run(t) {
     });
     t.check('the modal backdrop\'s z-index is higher than the (now self-contained) map container\'s',
       stackOrder && stackOrder.modalZ > stackOrder.mapZ, JSON.stringify(stackOrder));
+    await page.close();
+  }
+
+  t.group('map view: the shared-coordinate jitter only applies to properties that actually share one point');
+  {
+    const SHARED_PROPS = SAMPLE_PROPS.map((p) => Object.assign({}, p, { lat: 19.7, lng: -101.2 }));
+    const sharedApiSource = `
+      var SAMPLE_PROPS = ${JSON.stringify(SHARED_PROPS)};
+      var API = {
+        getBootstrap: function () { return { email: 'admin@example.com', role: 'admin', build: 'v1', properties: SAMPLE_PROPS }; },
+        listProperties: function () { return SAMPLE_PROPS; }
+      };
+    `;
+    const page = await browser.newPage();
+    t.watch(page);
+    const url = writePage('client-map-shared.html', buildPage({ apiSource: sharedApiSource, preludeJs: FAKE_LEAFLET_PRELUDE }));
+    await page.goto(url);
+    await page.waitForTimeout(150);
+    await page.click('button:has-text("Mapa"), button:has-text("Map")');
+    await page.waitForTimeout(100);
+    const markers = await page.evaluate(() => window.__markers.map((m) => m.latlng));
+    t.check('two properties sharing the exact same coordinate DO get nudged apart (still distinguishable pins)',
+      markers.length === 2 && (markers[0][0] !== markers[1][0] || markers[0][1] !== markers[1][1]), JSON.stringify(markers));
     await page.close();
   }
 
