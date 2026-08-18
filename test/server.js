@@ -290,10 +290,69 @@ module.exports = async function run(t) {
     t.check('a genuine no-result falls back to the city and reports method "city"',
       noMatchEntry && noMatchEntry.method === 'city' && noMatchEntry.status === 'OK', JSON.stringify(noMatchEntry));
 
+    // Dpto. Prairie's seed address no longer has "Unit 2201" inline (v1.7 split it into the
+    // separate direccion2 field) - so this checks stripUnitNoise_ directly, as a defense-in-depth
+    // safety net for anyone who still types a unit number straight into the address field.
+    S.addProperty({ referencia: 'Diag Inline Unit', direccion: '1500 W Test St, Unit 501', ciudad: 'Morelia', estado: 'Michoacan', countryCode: 'MX' });
+    S.relocateAllPins();
     t.check('geocodeProperty_ strips unit/apartment noise from the query before geocoding', (() => {
       const calls = S.__geocodeCalls;
-      const unitCall = calls.find((c) => c.query.includes('1211 S. Prairie'));
+      const unitCall = calls.find((c) => c.query.includes('1500 W Test St'));
       return unitCall && !unitCall.query.includes('Unit');
-    })(), JSON.stringify(S.__geocodeCalls.filter((c) => c.query.includes('Prairie'))));
+    })(), JSON.stringify(S.__geocodeCalls.filter((c) => c.query.includes('Test St'))));
+
+    // Regression: the bare "Uni" alternative used to have no trailing word-boundary check, so
+    // it matched as a PREFIX of an ordinary word too - it silently ate the real street name out
+    // of "22 N Union St" (Edificio Oficina Aurora), because "Uni" + a greedy trailing run of
+    // word characters devoured "on". Confirmed live via test/static.js's seed-data check.
+    S.addProperty({ referencia: 'Diag Union St', direccion: '22 N Union St', ciudad: 'Aurora', estado: 'Illinois', countryCode: 'US' });
+    S.relocateAllPins();
+    t.check('a real street name starting with "Uni" ("Union") is never mistaken for unit/apartment noise', (() => {
+      const calls = S.__geocodeCalls;
+      const unionCall = calls.find((c) => c.query.includes('Union'));
+      return !!unionCall;
+    })(), JSON.stringify(S.__geocodeCalls.filter((c) => c.query.includes('Aurora'))));
+  }
+
+  t.group('separate apt/interior number field (direccion2) - v1.7');
+  {
+    const S = loadServer();
+    S.__setUser('admin@example.com');
+    S.getBootstrap();
+
+    const afterAdd = S.addProperty({ referencia: 'Depto Test', direccion: '100 Main St', direccion2: 'Apt 4B', countryCode: 'MX', ciudad: 'Morelia', estado: 'Michoacan' });
+    const added = afterAdd.filter((p) => p.referencia === 'Depto Test')[0];
+    t.check('addProperty stores direccion2 separately from direccion', added.direccion === '100 Main St' && added.direccion2 === 'Apt 4B', JSON.stringify(added));
+
+    const updated = S.updateProperty(added.id, { direccion2: 'Apt 9Z' });
+    const afterUpdate = updated.filter((p) => p.id === added.id)[0];
+    t.check('updateProperty can change direccion2', afterUpdate.direccion2 === 'Apt 9Z', afterUpdate.direccion2);
+
+    // splitAddressUnitV1_ migration: a legacy row with the unit number still embedded in
+    // direccion (as every property looked before v1.7) gets it pulled out into direccion2,
+    // while a row someone has already given its own direccion2 value is left untouched.
+    const ssId = Object.keys(S.__spreadsheetApp.__registry)[0];
+    const ss = S.__spreadsheetApp.__registry[ssId];
+    const sh = ss.getSheetByName('Properties');
+    const vals0 = sh.getDataRange().getValues();
+    const head0 = vals0[0];
+    const idx0 = {}; head0.forEach((x, i) => { idx0[x] = i; });
+    const legacyRow = vals0.findIndex((r) => r[idx0.referencia] === 'Depto Test');
+    sh.getRange(legacyRow + 1, idx0.direccion + 1).setValue('200 Legacy Ave, Unit 12');
+    sh.getRange(legacyRow + 1, idx0.direccion2 + 1).setValue('');
+    const alreadySplitBefore = vals0.find((r) => r[idx0.referencia] === 'Casa Maravatio')[idx0.direccion2];
+
+    S.setProp_('SPLIT_UNIT_V1_DONE', '');
+    S.bustReg_();
+    S.getBootstrap();
+
+    const vals1 = sh.getDataRange().getValues();
+    const idx1 = {}; vals1[0].forEach((x, i) => { idx1[x] = i; });
+    const splitRow = vals1.find((r) => r[idx1.referencia] === 'Depto Test');
+    t.check('the migration pulls an embedded unit number out into direccion2',
+      splitRow[idx1.direccion] === '200 Legacy Ave' && splitRow[idx1.direccion2] === 'Unit 12', JSON.stringify({ direccion: splitRow[idx1.direccion], direccion2: splitRow[idx1.direccion2] }));
+    const untouchedRow = vals1.find((r) => r[idx1.referencia] === 'Casa Maravatio');
+    t.check('a row with no embedded unit noise is left untouched by the migration',
+      untouchedRow[idx1.direccion2] === alreadySplitBefore, untouchedRow[idx1.direccion2]);
   }
 };

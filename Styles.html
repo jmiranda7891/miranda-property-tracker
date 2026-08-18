@@ -225,6 +225,12 @@
   }
   table.prop-table thead th.sortable { cursor: pointer; user-select: none; }
   table.prop-table thead th.sortable:hover { background: #e7e3d8; }
+  tr.filter-row th { background: #fff; padding: .3rem .5rem; border-bottom: 1px solid var(--border); font-weight: 400; }
+  .col-filter, .col-filter-num { width: 100%; box-sizing: border-box; padding: .3rem .4rem; font-size: .78rem; border: 1px solid var(--border); border-radius: 4px; }
+  .col-filter-range { display: flex; gap: .25rem; }
+  .col-filter-range .col-filter-num { width: 50%; }
+  td.empty-filtered { text-align: center; color: var(--text-muted); padding: 1.2rem; white-space: normal; }
+  .list-filter-bar { margin-bottom: .5rem; }
   table.prop-table thead th .sort-arrow { margin-left: .25rem; opacity: .8; }
   table.prop-table tbody td { padding: .45rem .65rem; border-bottom: 1px solid var(--border); }
   table.prop-table tbody td.num { text-align: right; font-variant-numeric: tabular-nums; }

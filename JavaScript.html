@@ -21,7 +21,7 @@
       estatePlanning: 'Estate Planning', usaOnly: 'USA – parcel',
       research: 'Area research', valueEstimateLbl: 'Value estimate',
       createdBy: 'Added by', updatedBy: 'Last updated by', openInMaps: 'Open in Google Maps',
-      reference: 'Reference', type: 'Type', owners: 'Beneficial Owner', address: 'Address', city: 'City', state: 'State', zip: 'Zip',
+      reference: 'Reference', type: 'Type', owners: 'Beneficial Owner', address: 'Address', address2: 'Apt / Interior number (optional)', city: 'City', state: 'State', zip: 'Zip',
       notes: 'Notes', status: 'Status', estimatedPrice: 'Estimated price (USD)', priceIsPlaceholder: 'Placeholder value, not a real estimate',
       deedStatus: 'Deed status (Si/No)', titledTo: 'Titled Name', esEjidoLabel: 'Ejido land', planLargoPlazoLbl: 'Long-term plan', parcelPin: 'Parcel PIN',
       latLabel: 'Map latitude', lngLabel: 'Map longitude', mapPin: 'Map pin', mapPinHint: 'Optional - the map pin is located automatically from the address when you save. Type coordinates only to place the pin somewhere specific by hand.',
@@ -31,6 +31,7 @@
       pinsMethodAddress: 'Address', pinsMethodCity: 'City (fallback)', pinsMethodNone: 'Failed',
       pinsColMethod: 'Method', pinsColStatus: 'Geocoder status', pinsColQuery: 'Query sent', pinsColCoords: 'Before → after',
       pinsAddressAttemptFailed: 'Address attempt failed',
+      minLabel: 'Min', maxLabel: 'Max', clearColumnFilters: 'Clear column filters',
       planMantener: 'Keep Individual', planFideicomiso: 'Transfer to Trust', planVender: 'Sell',
       yesWord: 'Yes', noWord: 'No',
       archivedYes: 'Archived', archivedBadge: 'ARCHIVED',
@@ -64,7 +65,7 @@
       estatePlanning: 'Planeación Patrimonial', usaOnly: 'EE. UU. – parcela',
       research: 'Investigación de la zona', valueEstimateLbl: 'Estimación de valor',
       createdBy: 'Agregado por', updatedBy: 'Última actualización por', openInMaps: 'Abrir en Google Maps',
-      reference: 'Referencia', type: 'Tipo', owners: 'Dueño Beneficiario', address: 'Dirección', city: 'Ciudad', state: 'Estado', zip: 'C.P.',
+      reference: 'Referencia', type: 'Tipo', owners: 'Dueño Beneficiario', address: 'Dirección', address2: 'Depto / Número interior (opcional)', city: 'Ciudad', state: 'Estado', zip: 'C.P.',
       notes: 'Observaciones', status: 'Estatus', estimatedPrice: 'Precio estimado (USD)', priceIsPlaceholder: 'Valor de relleno, no es una estimación real',
       deedStatus: 'Escrituras (Si/No)', titledTo: 'Nombre Escriturado', esEjidoLabel: 'Terreno ejidal', planLargoPlazoLbl: 'Plan a largo plazo', parcelPin: 'PIN de parcela',
       latLabel: 'Latitud del mapa', lngLabel: 'Longitud del mapa', mapPin: 'Ubicación en el mapa', mapPinHint: 'Opcional - el pin del mapa se ubica automáticamente a partir de la dirección al guardar. Escribe coordenadas solo si quieres colocar el pin a mano en un punto específico.',
@@ -74,6 +75,7 @@
       pinsMethodAddress: 'Dirección', pinsMethodCity: 'Ciudad (respaldo)', pinsMethodNone: 'Falló',
       pinsColMethod: 'Método', pinsColStatus: 'Estado del geocodificador', pinsColQuery: 'Consulta enviada', pinsColCoords: 'Antes → después',
       pinsAddressAttemptFailed: 'Falló el intento con la dirección',
+      minLabel: 'Mín', maxLabel: 'Máx', clearColumnFilters: 'Quitar filtros de columna',
       planMantener: 'Mantener Individual', planFideicomiso: 'Traspasar a Fideicomiso', planVender: 'Vender',
       yesWord: 'Sí', noWord: 'No',
       archivedYes: 'Archivada', archivedBadge: 'ARCHIVADA',
@@ -103,6 +105,7 @@
     view: (localStorage.getItem('mpt_view') || 'cards'),
     filters: { country: '', status: '', tipo: '', q: '', showArchived: false },
     sort: { key: null, dir: 'asc' },
+    listFilters: {},
     modal: null,
     adminTab: 'users',
     adminUsers: null,
@@ -130,7 +133,7 @@
   }
 
   function mapsLink(p) {
-    var q = [p.direccion, p.ciudad, p.estado, p.countryCode === 'US' ? 'USA' : 'Mexico'].filter(function (x) { return !!x; }).join(', ');
+    var q = [p.direccion, p.direccion2, p.ciudad, p.estado, p.countryCode === 'US' ? 'USA' : 'Mexico'].filter(function (x) { return !!x; }).join(', ');
     return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
   }
 
@@ -213,6 +216,14 @@
   // ============================ Render ============================
   function render() {
     var app = document.getElementById('app');
+    // A full innerHTML rebuild (below) destroys and recreates every node, including whatever
+    // input the user is typing into (the search box, a column filter, a form field) - which
+    // would otherwise steal focus after every keystroke. Save the focused element's id and
+    // caret position beforehand and restore them afterward.
+    var active = document.activeElement;
+    var activeId = active && active.id;
+    var selStart = (active && typeof active.selectionStart === 'number') ? active.selectionStart : null;
+    var selEnd = (active && typeof active.selectionEnd === 'number') ? active.selectionEnd : null;
     if (STATE.role === 'none') {
       app.innerHTML = renderTopbar() + '<div class="center-msg"><div>' +
         '<h2>' + esc(t('accessDeniedTitle')) + '</h2><p>' + esc(t('accessDeniedBody')) + '</p>' +
@@ -223,6 +234,15 @@
     if (STATE.modal) html += renderModal();
     if (STATE.toast) html += '<div class="toast' + (STATE.toast.isError ? ' error' : '') + '">' + esc(STATE.toast.msg) + '</div>';
     app.innerHTML = html;
+    if (activeId) {
+      var el = document.getElementById(activeId);
+      if (el) {
+        el.focus();
+        if (selStart != null && el.setSelectionRange) {
+          try { el.setSelectionRange(selStart, selEnd); } catch (e) { }
+        }
+      }
+    }
     // Leaflet needs a live DOM node to attach to, which only exists after innerHTML above runs.
     if (STATE.view === 'map') setTimeout(initMap, 0);
     else if (MAP_INSTANCE_) { MAP_INSTANCE_.remove(); MAP_INSTANCE_ = null; }
@@ -352,28 +372,93 @@
 
   // ============================ List/table view ============================
   var LIST_COLUMNS = [
-    { key: 'referencia', labelKey: 'reference' },
-    { key: 'tipo', labelKey: 'type' },
-    { key: 'countryCode', labelKey: 'filterCountry' },
-    { key: 'ciudad', labelKey: 'city' },
-    { key: 'estado', labelKey: 'state' },
-    { key: 'propietario', labelKey: 'owners' },
-    { key: 'propEscriturado', labelKey: 'titledTo' },
-    { key: 'status', labelKey: 'status' },
-    { key: 'precioEstimadoUSD', labelKey: 'estimatedPrice', num: true },
-    { key: 'escrituras', labelKey: 'deedStatus' },
-    { key: 'esEjido', labelKey: 'esEjidoLabel' },
-    { key: 'planLargoPlazo', labelKey: 'planLargoPlazoLbl' },
-    { key: 'pin', labelKey: 'parcelPin' },
-    { key: 'observacionesRaw', labelKey: 'notes', sortable: false }
+    { key: 'referencia', labelKey: 'reference', filterType: 'text' },
+    { key: 'tipo', labelKey: 'type', filterType: 'select', filterOptions: TIPOS },
+    { key: 'countryCode', labelKey: 'filterCountry', filterType: 'select', filterOptions: ['MX', 'US'] },
+    { key: 'ciudad', labelKey: 'city', filterType: 'text' },
+    { key: 'estado', labelKey: 'state', filterType: 'text' },
+    { key: 'propietario', labelKey: 'owners', filterType: 'text' },
+    { key: 'propEscriturado', labelKey: 'titledTo', filterType: 'text' },
+    { key: 'status', labelKey: 'status', filterType: 'select', filterOptions: STATUSES },
+    { key: 'precioEstimadoUSD', labelKey: 'estimatedPrice', num: true, filterType: 'range' },
+    { key: 'escrituras', labelKey: 'deedStatus', filterType: 'select', filterOptions: ['Si', 'No'] },
+    { key: 'esEjido', labelKey: 'esEjidoLabel', filterType: 'select', filterOptions: ['true', 'false'] },
+    { key: 'planLargoPlazo', labelKey: 'planLargoPlazoLbl', filterType: 'select', filterOptions: PLANES_LARGO_PLAZO },
+    { key: 'pin', labelKey: 'parcelPin', filterType: 'text' },
+    { key: 'observacionesRaw', labelKey: 'notes', sortable: false, filterType: 'text' }
   ];
 
-  function renderListView(list) {
+  // Labels for a column filter <select>'s options - reuses the same lookups the table cells
+  // themselves use, so a filter option always reads the same as the value it matches.
+  function columnOptionLabel_(key, val) {
+    if (key === 'status') return statusLabel(val);
+    if (key === 'countryCode') return countryLabel(val);
+    if (key === 'escrituras') return val === 'Si' ? t('yesWord') : t('noWord');
+    if (key === 'esEjido') return val === 'true' ? t('yesWord') : t('noWord');
+    if (key === 'planLargoPlazo') return planLabel(val);
+    return val;
+  }
+
+  function renderColumnFilterControl_(c) {
+    var val = STATE.listFilters[c.key];
+    if (c.filterType === 'select') {
+      var opts = (c.filterOptions || []).map(function (o) {
+        return '<option value="' + esc(o) + '"' + (val === o ? ' selected' : '') + '>' + esc(columnOptionLabel_(c.key, o)) + '</option>';
+      }).join('');
+      return '<select class="col-filter" id="colf_' + c.key + '" onchange="MPT.setListFilter(\'' + c.key + '\', this.value)"><option value="">' + esc(t('all')) + '</option>' + opts + '</select>';
+    }
+    if (c.filterType === 'range') {
+      var rf = (val && typeof val === 'object') ? val : {};
+      return '<div class="col-filter-range">' +
+        '<input type="number" class="col-filter-num" id="colf_' + c.key + '_min" placeholder="' + esc(t('minLabel')) + '" value="' + esc(rf.min || '') + '" oninput="MPT.setListRangeFilter(\'' + c.key + '\', \'min\', this.value)">' +
+        '<input type="number" class="col-filter-num" id="colf_' + c.key + '_max" placeholder="' + esc(t('maxLabel')) + '" value="' + esc(rf.max || '') + '" oninput="MPT.setListRangeFilter(\'' + c.key + '\', \'max\', this.value)">' +
+        '</div>';
+    }
+    return '<input type="text" class="col-filter" id="colf_' + c.key + '" value="' + esc(val || '') + '" oninput="MPT.setListFilter(\'' + c.key + '\', this.value)">';
+  }
+
+  function rowMatchesColumnFilters_(p) {
+    var filters = STATE.listFilters;
+    for (var i = 0; i < LIST_COLUMNS.length; i++) {
+      var c = LIST_COLUMNS[i];
+      var val = filters[c.key];
+      if (val == null || val === '') continue;
+      if (c.filterType === 'range') {
+        if (typeof val !== 'object') continue;
+        var num = p[c.key];
+        if (val.min !== '' && val.min != null && (num == null || Number(num) < Number(val.min))) return false;
+        if (val.max !== '' && val.max != null && (num == null || Number(num) > Number(val.max))) return false;
+        continue;
+      }
+      if (c.filterType === 'select') {
+        if (c.key === 'esEjido') { if ((val === 'true') !== !!p.esEjido) return false; }
+        else if (String(p[c.key] || '') !== val) return false;
+        continue;
+      }
+      if (String(p[c.key] || '').toLowerCase().indexOf(String(val).toLowerCase()) === -1) return false;
+    }
+    return true;
+  }
+
+  function hasActiveListFilters_() {
+    var f = STATE.listFilters;
+    for (var k in f) {
+      if (!f.hasOwnProperty(k)) continue;
+      var v = f[k];
+      if (v && typeof v === 'object') { if (v.min || v.max) return true; }
+      else if (v) return true;
+    }
+    return false;
+  }
+
+  function renderListView(fullList) {
     var thead = LIST_COLUMNS.map(function (c) {
       if (c.sortable === false) return '<th>' + esc(t(c.labelKey)) + '</th>';
       var arrow = STATE.sort.key === c.key ? ' <span class="sort-arrow">' + (STATE.sort.dir === 'asc' ? '▲' : '▼') + '</span>' : '';
       return '<th class="sortable" onclick="MPT.setSort(\'' + c.key + '\')">' + esc(t(c.labelKey)) + arrow + '</th>';
     }).join('');
+    var filterRow = LIST_COLUMNS.map(function (c) { return '<th class="filter-cell">' + renderColumnFilterControl_(c) + '</th>'; }).join('');
+    var list = fullList.filter(rowMatchesColumnFilters_);
     var rows = list.map(function (p) {
       var cells = LIST_COLUMNS.map(function (c) {
         var v;
@@ -387,7 +472,10 @@
       }).join('');
       return '<tr class="' + (p.archived ? 'archived' : '') + '" onclick="MPT.openDetail(\'' + p.id + '\')">' + cells + '</tr>';
     }).join('');
-    return '<div class="table-scroll"><table class="prop-table"><thead><tr>' + thead + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+    var emptyRow = !list.length ? '<tr><td class="empty-filtered" colspan="' + LIST_COLUMNS.length + '">' + esc(t('noProperties')) + '</td></tr>' : '';
+    var clearBar = hasActiveListFilters_()
+      ? '<div class="list-filter-bar"><button class="btn btn-light btn-sm" onclick="MPT.clearListFilters()">' + esc(t('clearColumnFilters')) + '</button></div>' : '';
+    return clearBar + '<div class="table-scroll"><table class="prop-table"><thead><tr>' + thead + '</tr><tr class="filter-row">' + filterRow + '</tr></thead><tbody>' + rows + emptyRow + '</tbody></table></div>';
   }
 
   // ============================ Modal shell ============================
@@ -418,7 +506,8 @@
       kv(t('status'), statusLabel(p.status)) + (p.archived ? kv(t('archivedYes'), p.archivedReason || '—') : '') +
       '</div>' +
       '<div class="field-group"><h4>' + esc(t('location')) + '</h4>' +
-      kv(t('address'), p.direccion) + kv(t('city'), p.ciudad) + kv(t('state'), p.estado) + kv(t('zip'), p.cp) +
+      kv(t('filterCountry'), countryLabel(p.countryCode)) +
+      kv(t('address'), p.direccion) + kv(t('address2'), p.direccion2) + kv(t('city'), p.ciudad) + kv(t('state'), p.estado) + kv(t('zip'), p.cp) +
       (p.lat != null && p.lng != null ? kv(t('mapPin'), p.lat.toFixed(5) + ', ' + p.lng.toFixed(5)) : '') +
       '<a class="maps-link" target="_blank" href="' + mapsLink(p) + '">📍 ' + esc(t('openInMaps')) + '</a>' +
       '</div>' +
@@ -495,11 +584,11 @@
       '<p style="color:var(--text-muted);font-size:.8rem">' + esc(t('requiredNote')) + '</p>' +
       '<div class="field-group"><h4>' + esc(t('identification')) + '</h4>' +
       '<div class="field-row">' + fld('f_referencia', t('reference'), p.referencia) + fldSelect('f_tipo', t('type'), tipoOpts, p.tipo || 'Casa') + '</div>' +
-      '<div class="field-row">' + fldSelect('f_countryCode', t('filterCountry'), [{ v: 'MX', l: t('mexico') }, { v: 'US', l: t('usa') }], p.countryCode || 'MX') +
-      fldSelect('f_status', t('status'), statusOpts, p.status || 'libre') + '</div>' +
+      '<div class="field-row">' + fldSelect('f_status', t('status'), statusOpts, p.status || 'libre') + '</div>' +
       '</div>' +
       '<div class="field-group"><h4>' + esc(t('location')) + '</h4>' +
-      '<div class="field-row">' + fld('f_direccion', t('address'), p.direccion) + '</div>' +
+      '<div class="field-row">' + fldSelect('f_countryCode', t('filterCountry'), [{ v: 'MX', l: t('mexico') }, { v: 'US', l: t('usa') }], p.countryCode || 'MX') + '</div>' +
+      '<div class="field-row">' + fld('f_direccion', t('address'), p.direccion) + fld('f_direccion2', t('address2'), p.direccion2) + '</div>' +
       '<div class="field-row">' + fld('f_ciudad', t('city'), p.ciudad) + fld('f_estado', t('state'), p.estado) + fld('f_cp', t('zip'), p.cp) + '</div>' +
       '<div class="field-row">' + fld('f_lat', t('latLabel'), p.lat, 'number') + fld('f_lng', t('lngLabel'), p.lng, 'number') + '</div>' +
       '<p style="color:var(--text-muted);font-size:.75rem">' + esc(t('mapPinHint')) + '</p>' +
@@ -528,7 +617,7 @@
     function checked(id) { var el = document.getElementById(id); return el ? el.checked : false; }
     return {
       referencia: v('f_referencia'), tipo: v('f_tipo'), countryCode: v('f_countryCode'), status: v('f_status'),
-      propietario: v('f_propietario'), direccion: v('f_direccion'), ciudad: v('f_ciudad'), estado: v('f_estado'), cp: v('f_cp'),
+      propietario: v('f_propietario'), direccion: v('f_direccion'), direccion2: v('f_direccion2'), ciudad: v('f_ciudad'), estado: v('f_estado'), cp: v('f_cp'),
       precioEstimadoUSD: v('f_precioEstimadoUSD'), observacionesRaw: v('f_observacionesRaw'),
       escrituras: v('f_escrituras'), esEjido: checked('f_esEjido'), propEscriturado: v('f_propEscriturado'),
       planLargoPlazo: v('f_planLargoPlazo'), pin: v('f_pin'), lat: v('f_lat'), lng: v('f_lng')
@@ -630,6 +719,24 @@
   MPT.setView = function (view) {
     STATE.view = view;
     localStorage.setItem('mpt_view', view);
+    render();
+  };
+
+  MPT.setListFilter = function (key, val) {
+    STATE.listFilters[key] = val;
+    render();
+  };
+
+  MPT.setListRangeFilter = function (key, part, val) {
+    var cur = STATE.listFilters[key];
+    if (!cur || typeof cur !== 'object') cur = { min: '', max: '' };
+    cur[part] = val;
+    STATE.listFilters[key] = cur;
+    render();
+  };
+
+  MPT.clearListFilters = function () {
+    STATE.listFilters = {};
     render();
   };
 

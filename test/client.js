@@ -17,7 +17,7 @@ const SAMPLE_PROPS = [
   },
   {
     id: 'p2', countryCode: 'US', paisRaw: 'Estados Unidos', tipo: 'Edificio', referencia: 'US Test',
-    propietario: 'Owner B', direccion: '1 Main St', ciudad: 'Chicago', estado: 'Illinois', cp: '60654',
+    propietario: 'Owner B', direccion: '1 Main St', direccion2: 'Unit 501', ciudad: 'Chicago', estado: 'Illinois', cp: '60654',
     observacionesRaw: '', status: 'en_venta', precioEstimadoUSD: 500000, precioEstimadoIsPlaceholder: false,
     escrituras: 'No', esEjido: false, propEscriturado: '', planLargoPlazo: 'mantener_individual', pin: '17-00-000-000-0000',
     lat: 41.8781, lng: -87.6298,
@@ -153,6 +153,52 @@ module.exports = async function run(t) {
     await page.close();
   }
 
+  t.group('list view: per-column filters (AutoFilter-style)');
+  {
+    const page = await browser.newPage();
+    t.watch(page);
+    const url = writePage('client-list-filters.html', buildPage({ apiSource: apiSourceFor('admin') }));
+    await page.goto(url);
+    await page.waitForTimeout(150);
+    await page.click('button:has-text("Lista"), button:has-text("List")');
+    await page.waitForTimeout(50);
+    t.check('a filter row renders under the column headers, one control per column', (await page.locator('tr.filter-row th').count()) > 0);
+
+    // Text filter: "Casa Test" vs "US Test" only differ in referencia.
+    await page.fill('#colf_referencia', 'US');
+    await page.waitForTimeout(50);
+    t.check('a text column filter narrows rows by a case-insensitive contains match', (await page.locator('table.prop-table tbody tr').count()) === 1);
+    t.check('the surviving row is the one that matches', (await page.locator('table.prop-table tbody tr td').first().textContent()).includes('US Test'));
+    const clearBtn = page.locator('.list-filter-bar button');
+    t.check('a "clear column filters" control appears once a filter is active', (await clearBtn.count()) === 1);
+    await clearBtn.click();
+    await page.waitForTimeout(50);
+    t.check('clearing resets to all rows visible again', (await page.locator('table.prop-table tbody tr').count()) === 2);
+
+    // Select filter: countryCode narrows to exactly the MX or US row.
+    await page.selectOption('#colf_countryCode', 'US');
+    await page.waitForTimeout(50);
+    t.check('a select column filter (country) narrows to exactly the matching row', (await page.locator('table.prop-table tbody tr').count()) === 1);
+    await page.selectOption('#colf_countryCode', '');
+    await page.waitForTimeout(50);
+
+    // Range filter: precioEstimadoUSD is 100000 (Casa Test) vs 500000 (US Test).
+    await page.fill('#colf_precioEstimadoUSD_min', '200000');
+    await page.waitForTimeout(50);
+    t.check('a range column filter (price min) excludes rows below the minimum', (await page.locator('table.prop-table tbody tr').count()) === 1);
+    const survivorText = await page.locator('table.prop-table tbody tr td').first().textContent();
+    t.check('the range filter kept the higher-priced row', survivorText.includes('US Test'), survivorText);
+    await page.fill('#colf_precioEstimadoUSD_min', '');
+    await page.waitForTimeout(50);
+
+    // Column filters compose with a query that would otherwise match zero rows.
+    await page.fill('#colf_referencia', 'nonexistent-xyz');
+    await page.waitForTimeout(50);
+    t.check('a filter matching nothing shows an in-table empty message, not a broken table', (await page.locator('table.prop-table tbody tr').count()) === 1
+      && (await page.locator('td.empty-filtered').count()) === 1);
+    await page.close();
+  }
+
   t.group('card polish');
   {
     const page = await browser.newPage();
@@ -212,6 +258,15 @@ module.exports = async function run(t) {
     t.check('deed status renders as a yes/no word, not a raw code', ['Sí', 'Yes', 'No'].includes(deedText.trim()), deedText);
     await page.click('.modal-close');
 
+    // US Test (p2) carries a direccion2 ("Unit 501") in the fixture - confirm the detail view's
+    // Location section shows both the country and the apt/interior number as their own lines.
+    await page.click('.prop-card >> nth=1');
+    await page.waitForTimeout(50);
+    const locationGroupText = await page.locator('.field-group:has-text("Ubicación"), .field-group:has-text("Location")').first().textContent();
+    t.check('the detail view\'s Location section shows the country (EE. UU./USA)', locationGroupText.includes('EE. UU.') || locationGroupText.includes('USA'), locationGroupText);
+    t.check('the detail view\'s Location section shows the apt/interior number', locationGroupText.includes('Unit 501'), locationGroupText);
+    await page.click('.modal-close');
+
     await page.click('button:has-text("Agregar propiedad"), button:has-text("Add property")');
     await page.waitForTimeout(50);
     const escrituraOptions = await page.locator('#f_escrituras option').allTextContents();
@@ -224,6 +279,11 @@ module.exports = async function run(t) {
     t.check('the name datalist is populated from existing properties', datalistOptions.includes('Owner A') && datalistOptions.includes('Titled Name A'), datalistOptions.join(','));
     t.check('both name fields point at the shared datalist', (await page.locator('#f_propietario').getAttribute('list')) === 'dl_names'
       && (await page.locator('#f_propEscriturado').getAttribute('list')) === 'dl_names');
+
+    const countryGroupHeading = await page.locator('.field-group:has(#f_countryCode) h4').textContent();
+    t.check('País/Country now lives in the Ubicación/Location field-group, not Identification',
+      countryGroupHeading.includes('Ubicación') || countryGroupHeading.includes('Location'), countryGroupHeading);
+    t.check('a second address field exists for the apt/interior number', (await page.locator('#f_direccion2').count()) === 1);
     await page.close();
   }
 

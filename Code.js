@@ -84,7 +84,7 @@ function findRowByKey_(sh, keyCol, keyVal) {
 // is legacy-only: still a column so nothing is destroyed, but no longer read or written by
 // the app - superseded by `planLargoPlazo`.
 var PROPERTIES_HEADERS_ = [
-  'id', 'countryCode', 'paisRaw', 'tipo', 'referencia', 'propietario', 'direccion', 'ciudad',
+  'id', 'countryCode', 'paisRaw', 'tipo', 'referencia', 'propietario', 'direccion', 'direccion2', 'ciudad',
   'estado', 'cp', 'observacionesRaw', 'status', 'precioEstimadoUSD', 'precioEstimadoIsPlaceholder',
   'escrituras', 'esEjido', 'propEscriturado', 'propuestaTraspaso', 'planLargoPlazo', 'pin',
   'lat', 'lng',
@@ -99,6 +99,7 @@ function ensureRegistry_() {
       var existing = SpreadsheetApp.openById(id);
       migrateSchemaV2_(existing);
       fixLatLngV1_(existing);
+      splitAddressUnitV1_(existing);
       regeocodeAllV1_(existing);
       return existing;
     } catch (e) { /* recreate below */ }
@@ -120,6 +121,7 @@ function ensureRegistry_() {
   seedIntoRegistry_(ss, me || 'system');
   migrateSchemaV2_(ss); // no-op on a fresh install - SEED_PROPERTIES_ already seeds the new shape
   fixLatLngV1_(ss); // ditto - a fresh install already has the corrected coordinates
+  splitAddressUnitV1_(ss); // ditto - SEED_PROPERTIES_ already has direccion2 split out
   regeocodeAllV1_(ss); // one-time: replace the hand-estimated pins with real geocoder output
   return ss;
 }
@@ -179,13 +181,50 @@ function inCountryBounds_(countryCode, lat, lng) {
 // the stored `direccion`, which still displays the unit to a human) measurably improves
 // street-level hits. Deliberately does NOT touch "Fracc." (fraccionamiento) - that's
 // meaningful neighborhood context in Mexican addresses, not unit noise.
-var UNIT_NOISE_RE_ = /,?\s*\b(Unit|Uni|Apt|Apto|Dpto\.?|Depto\.?|Suite|Ste)\.?\s*[\w-]*/gi;
+//
+// The \b right after the alternation is required, not decorative: without it, the bare "Uni"
+// alternative (a Spanish "Uni" abbreviation) also matches as a PREFIX of an ordinary word - it
+// silently ate the real street name out of "22 N Union St" ("Uni" + greedy [\w-]* devouring
+// "on"), turning the geocode query into "22 N St" for Edificio Oficina Aurora. Confirmed via
+// test/static.js's "no seed row still has ... embedded in direccion" check catching it live.
+var UNIT_NOISE_RE_ = /,?\s*\b(Unit|Uni|Apt|Apto|Dpto|Depto|Suite|Ste)\b\.?\s*[\w-]*/gi;
 function stripUnitNoise_(s) {
   return String(s || '')
     .replace(UNIT_NOISE_RE_, '')
     .replace(/\s{2,}/g, ' ')
     .replace(/,\s*,/g, ',')
     .replace(/^[,\s]+|[,\s]+$/g, '');
+}
+
+// One-time, per-row-idempotent migration: properties added before `direccion2` existed may
+// still have their unit/apt/interior number embedded in `direccion` (e.g. "1211 S. Prairie
+// St, Unit 2201") - this pulls that token out into `direccion2` and leaves `direccion` clean,
+// so the split is a real, permanent data fix, not just a geocode-time workaround (which
+// stripUnitNoise_ above still provides regardless, as a safety net for anything this misses).
+// Only touches a row when direccion2 is still blank, so a row someone has since edited by
+// hand is never overwritten.
+var UNIT_NOISE_CAPTURE_RE_ = /,?\s*\b((?:Unit|Uni|Apt|Apto|Dpto|Depto|Suite|Ste)\b\.?\s*[\w-]*)/i;
+function splitAddressUnitV1_(ss) {
+  if (prop_('SPLIT_UNIT_V1_DONE') === 'true') return;
+  var sh = ss.getSheetByName('Properties');
+  if (sh) {
+    var vals = sh.getDataRange().getValues();
+    var head = vals[0];
+    var idx = {}; head.forEach(function (h, i) { idx[h] = i; });
+    if (idx.direccion != null && idx.direccion2 != null) {
+      for (var r = 1; r < vals.length; r++) {
+        var addr = String(vals[r][idx.direccion] || '');
+        var existing2 = String(vals[r][idx.direccion2] || '');
+        if (existing2) continue;
+        var m = addr.match(UNIT_NOISE_CAPTURE_RE_);
+        if (m) {
+          sh.getRange(r + 1, idx.direccion + 1).setValue(stripUnitNoise_(addr));
+          sh.getRange(r + 1, idx.direccion2 + 1).setValue(m[1].trim());
+        }
+      }
+    }
+  }
+  setProp_('SPLIT_UNIT_V1_DONE', 'true');
 }
 
 // Returns {lat, lng, status, query} - lat/lng are null on any kind of miss, and `status` is
@@ -467,6 +506,7 @@ function listProperties() {
       referencia: String(p.referencia || ''),
       propietario: String(p.propietario || ''),
       direccion: String(p.direccion || ''),
+      direccion2: String(p.direccion2 || ''),
       ciudad: String(p.ciudad || ''),
       estado: String(p.estado || ''),
       cp: String(p.cp || ''),
@@ -499,7 +539,7 @@ function listProperties() {
 
 // ============================ Properties: write ============================
 var EDITABLE_FIELDS_ = [
-  'countryCode', 'paisRaw', 'tipo', 'referencia', 'propietario', 'direccion', 'ciudad', 'estado', 'cp',
+  'countryCode', 'paisRaw', 'tipo', 'referencia', 'propietario', 'direccion', 'direccion2', 'ciudad', 'estado', 'cp',
   'observacionesRaw', 'status', 'precioEstimadoUSD', 'precioEstimadoIsPlaceholder',
   'escrituras', 'esEjido', 'propEscriturado', 'planLargoPlazo', 'pin', 'lat', 'lng'
 ];
@@ -522,7 +562,8 @@ function addProperty(form) {
     id: id, countryCode: countryCode,
     paisRaw: String(form.paisRaw || (countryCode === 'US' ? 'Estados Unidos' : 'Mexico')),
     tipo: String(form.tipo || ''), referencia: referencia, propietario: String(form.propietario || ''),
-    direccion: direccion, ciudad: String(form.ciudad || ''), estado: String(form.estado || ''), cp: String(form.cp || ''),
+    direccion: direccion, direccion2: String(form.direccion2 || '').trim(),
+    ciudad: String(form.ciudad || ''), estado: String(form.estado || ''), cp: String(form.cp || ''),
     observacionesRaw: String(form.observacionesRaw || ''), status: status,
     precioEstimadoUSD: form.precioEstimadoUSD ? Number(form.precioEstimadoUSD) : '',
     precioEstimadoIsPlaceholder: false,
@@ -721,6 +762,7 @@ var EXPORT_HEADERS_ = [
   ['tipo', 'Type / Tipo'],
   ['countryCode', 'Country / País'],
   ['direccion', 'Address / Dirección'],
+  ['direccion2', 'Apt/Interior No. / Depto/No. Interior'],
   ['ciudad', 'City / Ciudad'],
   ['estado', 'State / Estado'],
   ['cp', 'Zip / C.P.'],
@@ -737,8 +779,12 @@ var EXPORT_HEADERS_ = [
   ['mapsLink', 'Google Maps']
 ];
 
+// The apt/interior number (direccion2) is deliberately included here but NEVER in the
+// geocoding query (geocodeProperty_ below) - Google's map search UI is forgiving of a unit
+// number, but the strict Geocoding API is exactly what unit noise confuses (see
+// stripUnitNoise_'s comment / CLAUDE.md "geocoding diagnostics").
 function mapsLink_(p) {
-  var q = [p.direccion, p.ciudad, p.estado, p.countryCode === 'US' ? 'USA' : 'Mexico'].filter(String).join(', ');
+  var q = [p.direccion, p.direccion2, p.ciudad, p.estado, p.countryCode === 'US' ? 'USA' : 'Mexico'].filter(String).join(', ');
   return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
 }
 
@@ -783,7 +829,7 @@ function exportProperties(filterJson) {
 // (country-spelling normalization, the sold USA house archived, the one placeholder price
 // flagged, etc).
 var SEED_DEFAULTS_ = {
-  propietario: '', cp: '', observacionesRaw: '', escrituras: 'No', esEjido: false, propEscriturado: '',
+  propietario: '', direccion2: '', cp: '', observacionesRaw: '', escrituras: 'No', esEjido: false, propEscriturado: '',
   propuestaTraspaso: '', planLargoPlazo: 'mantener_individual', pin: '', lat: '', lng: '',
   precioEstimadoIsPlaceholder: false,
   aiResearchEN: '', aiResearchES: '', aiValueEstimateEN: '', aiValueEstimateES: '',
@@ -894,7 +940,8 @@ var SEED_PROPERTIES_ = [
     "tipo": "Departamento",
     "referencia": "Departamento D.F",
     "propietario": "Jorge Miranda Juarez",
-    "direccion": "Av. Santa Fe #449, Dpto. 1402 Torre B",
+    "direccion": "Av. Santa Fe #449, Torre B",
+    "direccion2": "Dpto. 1402",
     "ciudad": "Mexico",
     "estado": "Distrito Federal",
     "cp": "05384",
@@ -1038,7 +1085,8 @@ var SEED_PROPERTIES_ = [
     "tipo": "Casa",
     "referencia": "Dpto. Cancun",
     "propietario": "Jorge Miranda Juárez",
-    "direccion": "Dpto. 16-C Torre II, Condominio Cancun Towers",
+    "direccion": "Torre II, Condominio Cancun Towers",
+    "direccion2": "Dpto. 16-C",
     "ciudad": "Cancun",
     "estado": "Quintana Roo",
     "cp": "77500",
@@ -1708,7 +1756,8 @@ var SEED_PROPERTIES_ = [
     "tipo": "Departamento",
     "referencia": "Dpto. Prairie",
     "propietario": "Georgina M. Lopez",
-    "direccion": "1211 S. Prairie St, Unit 2201",
+    "direccion": "1211 S. Prairie St",
+    "direccion2": "Unit 2201",
     "ciudad": "Chicago",
     "estado": "Illinois",
     "cp": "60605",

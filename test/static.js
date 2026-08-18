@@ -102,6 +102,14 @@ module.exports = async function run(t) {
     const ejidoCount = seed.filter((p) => p.esEjido).length;
     t.check('at least one property is flagged as ejido land', ejidoCount > 0, 'got ' + ejidoCount);
 
+    t.group('seed data - separate apt/interior number field (direccion2, v1.7)');
+    const UNIT_NOISE_CHECK_RE = /\b(Unit|Uni|Apt|Apto|Dpto|Depto|Suite|Ste)\b/i;
+    const stillEmbedded = seed.filter((p) => UNIT_NOISE_CHECK_RE.test(p.direccion));
+    t.check('no seed row still has a unit/apt/interior number embedded in direccion - it belongs in direccion2 instead',
+      stillEmbedded.length === 0, stillEmbedded.map((p) => p.referencia + ': ' + p.direccion).join(' | '));
+    const withDireccion2 = seed.filter((p) => p.direccion2);
+    t.check('at least one property actually uses direccion2 (proves the field is real, not just declared)', withDireccion2.length > 0, withDireccion2.length);
+
     t.group('seed data - corrected map pins stay in sync with LATLNG_FIXES_V1_');
     const fixMatch = code.match(/var LATLNG_FIXES_V1_ = (\{[\s\S]*?\n\});/);
     t.check('LATLNG_FIXES_V1_ found', !!fixMatch);
