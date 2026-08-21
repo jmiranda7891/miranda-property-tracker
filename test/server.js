@@ -355,4 +355,66 @@ module.exports = async function run(t) {
     t.check('a row with no embedded unit noise is left untouched by the migration',
       untouchedRow[idx1.direccion2] === alreadySplitBefore, untouchedRow[idx1.direccion2]);
   }
+
+  t.group('tracking fields (lot/construction size, acquisition basis, ownership/legal, registry IDs) - v1.8');
+  {
+    const S = loadServer();
+    S.__setUser('admin@example.com');
+    S.getBootstrap();
+
+    const afterAdd = S.addProperty({
+      referencia: 'Tracking Test', direccion: '300 Test Ave', countryCode: 'MX', ciudad: 'Morelia', estado: 'Michoacan',
+      lotSizeValue: '500', lotSizeUnit: 'm2', constructionSizeValue: '220', constructionSizeUnit: 'm2',
+      acquisitionDate: '2010-05-01', acquisitionPriceUSD: '80000',
+      ownershipPct: '50', liensNotes: 'Second mortgage with BBVA', hoaFeeUSD: '150', documentsUrl: 'https://drive.google.com/folder/xyz',
+      folioReal: 'FR-12345', claveCatastral: 'CAT-9999', cuentaPredial: 'PRED-001', usoDeSuelo: 'Habitacional', notario: 'Lic. Juan Perez',
+      county: 'should be ignored for MX rows but stored anyway', titlePolicyInfo: '', legalDescription: ''
+    });
+    const added = afterAdd.filter((p) => p.referencia === 'Tracking Test')[0];
+    t.check('addProperty stores lot/construction size + unit', added.lotSizeValue === 500 && added.lotSizeUnit === 'm2' && added.constructionSizeValue === 220 && added.constructionSizeUnit === 'm2', JSON.stringify(added));
+    t.check('addProperty stores acquisition date + price separately from the current estimate', added.acquisitionDate === '2010-05-01' && added.acquisitionPriceUSD === 80000, JSON.stringify(added));
+    t.check('addProperty stores ownership %, liens, HOA fee, documents URL', added.ownershipPct === 50 && added.liensNotes === 'Second mortgage with BBVA' && added.hoaFeeUSD === 150 && added.documentsUrl === 'https://drive.google.com/folder/xyz', JSON.stringify(added));
+    t.check('addProperty stores MX registry IDs', added.folioReal === 'FR-12345' && added.claveCatastral === 'CAT-9999' && added.cuentaPredial === 'PRED-001' && added.usoDeSuelo === 'Habitacional' && added.notario === 'Lic. Juan Perez', JSON.stringify(added));
+
+    const updated = S.updateProperty(added.id, { county: 'Cook County', titlePolicyInfo: 'Chicago Title #4567', legalDescription: 'Lot 4, Block 2' });
+    const afterUpdate = updated.filter((p) => p.id === added.id)[0];
+    t.check('updateProperty can set USA-only registry fields', afterUpdate.county === 'Cook County' && afterUpdate.titlePolicyInfo === 'Chicago Title #4567' && afterUpdate.legalDescription === 'Lot 4, Block 2', JSON.stringify(afterUpdate));
+
+    t.check('a property added with none of the new fields gets clean blank/null defaults, not errors', (() => {
+      const bare = S.addProperty({ referencia: 'Bare Test', direccion: '1 Bare St', countryCode: 'US', ciudad: 'Chicago', estado: 'Illinois' })
+        .filter((p) => p.referencia === 'Bare Test')[0];
+      return bare.lotSizeValue === null && bare.acquisitionPriceUSD === null && bare.ownershipPct === null
+        && bare.liensNotes === '' && bare.folioReal === '' && bare.county === '';
+    })());
+
+    // addTrackingFieldsV1_ must retrofit a LIVE sheet that predates these columns without
+    // disturbing existing data - simulate a pre-v1.8 sheet by truncating the fake sheet's
+    // header row back to before the tracking columns existed, then re-bootstrap.
+    const ssId = Object.keys(S.__spreadsheetApp.__registry)[0];
+    const ss = S.__spreadsheetApp.__registry[ssId];
+    const sh = ss.getSheetByName('Properties');
+    // Removing headers alone would misalign every surviving row's values (a plain filter
+    // shifts column positions without moving the data in sh.rows to match) - rebuild both
+    // headers and row data together, keeping only the columns that predate v1.8.
+    const survivingIdx = [];
+    const newHeaders = [];
+    sh.headers.forEach((h, i) => {
+      if (S.TRACKING_FIELDS_V1_.indexOf(h) === -1) { survivingIdx.push(i); newHeaders.push(h); }
+    });
+    sh.rows = sh.rows.map((row) => survivingIdx.map((i) => row[i]));
+    sh.headers = newHeaders;
+    t.check('the simulated pre-v1.8 sheet no longer has the tracking columns', !sh.headers.includes('lotSizeValue') && !sh.headers.includes('folioReal'), sh.headers.join(','));
+
+    S.setProp_('TRACKING_FIELDS_V1_DONE', '');
+    S.bustReg_();
+    const beforeRetrofit = S.listProperties().filter((p) => p.referencia === 'Tracking Test')[0];
+    S.getBootstrap();
+
+    t.check('addTrackingFieldsV1_ retrofits a pre-v1.8 sheet with the missing columns',
+      S.TRACKING_FIELDS_V1_.every((c) => sh.headers.includes(c)), sh.headers.join(','));
+    const afterRetrofit = S.listProperties().filter((p) => p.referencia === 'Tracking Test')[0];
+    t.check('retrofitting the columns does not disturb pre-existing row data',
+      afterRetrofit.referencia === beforeRetrofit.referencia && afterRetrofit.direccion === beforeRetrofit.direccion,
+      JSON.stringify({ before: beforeRetrofit, after: afterRetrofit }));
+  }
 };

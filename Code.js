@@ -85,12 +85,37 @@ function findRowByKey_(sh, keyCol, keyVal) {
 // the app - superseded by `planLargoPlazo`.
 var PROPERTIES_HEADERS_ = [
   'id', 'countryCode', 'paisRaw', 'tipo', 'referencia', 'propietario', 'direccion', 'direccion2', 'ciudad',
-  'estado', 'cp', 'observacionesRaw', 'status', 'precioEstimadoUSD', 'precioEstimadoIsPlaceholder',
-  'escrituras', 'esEjido', 'propEscriturado', 'propuestaTraspaso', 'planLargoPlazo', 'pin',
+  'estado', 'cp', 'lotSizeValue', 'lotSizeUnit', 'constructionSizeValue', 'constructionSizeUnit',
+  'observacionesRaw', 'status', 'precioEstimadoUSD', 'precioEstimadoIsPlaceholder',
+  'acquisitionDate', 'acquisitionPriceUSD',
+  'escrituras', 'esEjido', 'propEscriturado', 'propuestaTraspaso', 'planLargoPlazo',
+  'ownershipPct', 'liensNotes', 'hoaFeeUSD', 'documentsUrl',
+  'folioReal', 'claveCatastral', 'cuentaPredial', 'usoDeSuelo', 'notario',
+  'pin', 'county', 'titlePolicyInfo', 'legalDescription',
   'lat', 'lng',
   'aiResearchEN', 'aiResearchES', 'aiValueEstimateEN', 'aiValueEstimateES', 'researchDate',
   'archived', 'archivedReason', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'
 ];
+
+// v1.8 tracking-field additions (lot/construction size, acquisition cost basis, ownership/legal
+// extras, MX/USA registry IDs) - all brand-new optional columns, so unlike migrateSchemaV2_
+// there is no value-remapping to do, just making sure a LIVE sheet (created before these
+// existed) has the header columns at all. ensureColumn_ is itself idempotent (no-ops if the
+// column is already there), so a fresh install - whose Properties tab is created straight from
+// PROPERTIES_HEADERS_ above - finds every one of these already present and this is a no-op.
+var TRACKING_FIELDS_V1_ = [
+  'lotSizeValue', 'lotSizeUnit', 'constructionSizeValue', 'constructionSizeUnit',
+  'acquisitionDate', 'acquisitionPriceUSD',
+  'ownershipPct', 'liensNotes', 'hoaFeeUSD', 'documentsUrl',
+  'folioReal', 'claveCatastral', 'cuentaPredial', 'usoDeSuelo', 'notario',
+  'county', 'titlePolicyInfo', 'legalDescription'
+];
+function addTrackingFieldsV1_(ss) {
+  if (prop_('TRACKING_FIELDS_V1_DONE') === 'true') return;
+  var sh = ss.getSheetByName('Properties');
+  if (sh) TRACKING_FIELDS_V1_.forEach(function (c) { ensureColumn_(sh, c); });
+  setProp_('TRACKING_FIELDS_V1_DONE', 'true');
+}
 
 function ensureRegistry_() {
   var id = prop_('REGISTRY_ID');
@@ -100,6 +125,7 @@ function ensureRegistry_() {
       migrateSchemaV2_(existing);
       fixLatLngV1_(existing);
       splitAddressUnitV1_(existing);
+      addTrackingFieldsV1_(existing);
       regeocodeAllV1_(existing);
       return existing;
     } catch (e) { /* recreate below */ }
@@ -122,6 +148,7 @@ function ensureRegistry_() {
   migrateSchemaV2_(ss); // no-op on a fresh install - SEED_PROPERTIES_ already seeds the new shape
   fixLatLngV1_(ss); // ditto - a fresh install already has the corrected coordinates
   splitAddressUnitV1_(ss); // ditto - SEED_PROPERTIES_ already has direccion2 split out
+  addTrackingFieldsV1_(ss); // ditto - PROPERTIES_HEADERS_ already includes the new columns
   regeocodeAllV1_(ss); // one-time: replace the hand-estimated pins with real geocoder output
   return ss;
 }
@@ -510,16 +537,34 @@ function listProperties() {
       ciudad: String(p.ciudad || ''),
       estado: String(p.estado || ''),
       cp: String(p.cp || ''),
+      lotSizeValue: p.lotSizeValue === '' || p.lotSizeValue == null ? null : Number(p.lotSizeValue),
+      lotSizeUnit: String(p.lotSizeUnit || ''),
+      constructionSizeValue: p.constructionSizeValue === '' || p.constructionSizeValue == null ? null : Number(p.constructionSizeValue),
+      constructionSizeUnit: String(p.constructionSizeUnit || ''),
       observacionesRaw: String(p.observacionesRaw || ''),
       status: String(p.status || 'libre'),
       precioEstimadoUSD: p.precioEstimadoUSD === '' || p.precioEstimadoUSD == null ? null : Number(p.precioEstimadoUSD),
       precioEstimadoIsPlaceholder: p.precioEstimadoIsPlaceholder === true || p.precioEstimadoIsPlaceholder === 'TRUE',
+      acquisitionDate: String(p.acquisitionDate || ''),
+      acquisitionPriceUSD: p.acquisitionPriceUSD === '' || p.acquisitionPriceUSD == null ? null : Number(p.acquisitionPriceUSD),
       escrituras: String(p.escrituras || ''),
       esEjido: p.esEjido === true || p.esEjido === 'TRUE',
       propEscriturado: String(p.propEscriturado || ''),
       propuestaTraspaso: String(p.propuestaTraspaso || ''),
       planLargoPlazo: String(p.planLargoPlazo || 'mantener_individual'),
+      ownershipPct: p.ownershipPct === '' || p.ownershipPct == null ? null : Number(p.ownershipPct),
+      liensNotes: String(p.liensNotes || ''),
+      hoaFeeUSD: p.hoaFeeUSD === '' || p.hoaFeeUSD == null ? null : Number(p.hoaFeeUSD),
+      documentsUrl: String(p.documentsUrl || ''),
+      folioReal: String(p.folioReal || ''),
+      claveCatastral: String(p.claveCatastral || ''),
+      cuentaPredial: String(p.cuentaPredial || ''),
+      usoDeSuelo: String(p.usoDeSuelo || ''),
+      notario: String(p.notario || ''),
       pin: String(p.pin || ''),
+      county: String(p.county || ''),
+      titlePolicyInfo: String(p.titlePolicyInfo || ''),
+      legalDescription: String(p.legalDescription || ''),
       lat: p.lat === '' || p.lat == null ? null : Number(p.lat),
       lng: p.lng === '' || p.lng == null ? null : Number(p.lng),
       aiResearchEN: String(p.aiResearchEN || ''),
@@ -540,8 +585,14 @@ function listProperties() {
 // ============================ Properties: write ============================
 var EDITABLE_FIELDS_ = [
   'countryCode', 'paisRaw', 'tipo', 'referencia', 'propietario', 'direccion', 'direccion2', 'ciudad', 'estado', 'cp',
+  'lotSizeValue', 'lotSizeUnit', 'constructionSizeValue', 'constructionSizeUnit',
   'observacionesRaw', 'status', 'precioEstimadoUSD', 'precioEstimadoIsPlaceholder',
-  'escrituras', 'esEjido', 'propEscriturado', 'planLargoPlazo', 'pin', 'lat', 'lng'
+  'acquisitionDate', 'acquisitionPriceUSD',
+  'escrituras', 'esEjido', 'propEscriturado', 'planLargoPlazo',
+  'ownershipPct', 'liensNotes', 'hoaFeeUSD', 'documentsUrl',
+  'folioReal', 'claveCatastral', 'cuentaPredial', 'usoDeSuelo', 'notario',
+  'pin', 'county', 'titlePolicyInfo', 'legalDescription',
+  'lat', 'lng'
 ];
 
 function addProperty(form) {
@@ -564,11 +615,25 @@ function addProperty(form) {
     tipo: String(form.tipo || ''), referencia: referencia, propietario: String(form.propietario || ''),
     direccion: direccion, direccion2: String(form.direccion2 || '').trim(),
     ciudad: String(form.ciudad || ''), estado: String(form.estado || ''), cp: String(form.cp || ''),
+    lotSizeValue: form.lotSizeValue ? Number(form.lotSizeValue) : '', lotSizeUnit: String(form.lotSizeUnit || ''),
+    constructionSizeValue: form.constructionSizeValue ? Number(form.constructionSizeValue) : '',
+    constructionSizeUnit: String(form.constructionSizeUnit || ''),
     observacionesRaw: String(form.observacionesRaw || ''), status: status,
     precioEstimadoUSD: form.precioEstimadoUSD ? Number(form.precioEstimadoUSD) : '',
     precioEstimadoIsPlaceholder: false,
+    acquisitionDate: String(form.acquisitionDate || ''),
+    acquisitionPriceUSD: form.acquisitionPriceUSD ? Number(form.acquisitionPriceUSD) : '',
     escrituras: escrituras, esEjido: !!form.esEjido, propEscriturado: String(form.propEscriturado || ''),
-    propuestaTraspaso: '', planLargoPlazo: planLargoPlazo, pin: String(form.pin || ''),
+    propuestaTraspaso: '', planLargoPlazo: planLargoPlazo,
+    ownershipPct: form.ownershipPct ? Number(form.ownershipPct) : '',
+    liensNotes: String(form.liensNotes || ''),
+    hoaFeeUSD: form.hoaFeeUSD ? Number(form.hoaFeeUSD) : '',
+    documentsUrl: String(form.documentsUrl || ''),
+    folioReal: String(form.folioReal || ''), claveCatastral: String(form.claveCatastral || ''),
+    cuentaPredial: String(form.cuentaPredial || ''), usoDeSuelo: String(form.usoDeSuelo || ''),
+    notario: String(form.notario || ''),
+    pin: String(form.pin || ''), county: String(form.county || ''),
+    titlePolicyInfo: String(form.titlePolicyInfo || ''), legalDescription: String(form.legalDescription || ''),
     // Manually typed coordinates win; otherwise the address is geocoded automatically
     // (falling back to city-level, then to no pin if the geocoder finds nothing).
     lat: form.lat !== undefined && form.lat !== '' ? Number(form.lat) : '',
@@ -766,15 +831,33 @@ var EXPORT_HEADERS_ = [
   ['ciudad', 'City / Ciudad'],
   ['estado', 'State / Estado'],
   ['cp', 'Zip / C.P.'],
+  ['lotSizeValue', 'Lot Size / Tamaño del Terreno'],
+  ['lotSizeUnit', 'Lot Size Unit / Unidad del Terreno'],
+  ['constructionSizeValue', 'Construction Size / Tamaño de Construcción'],
+  ['constructionSizeUnit', 'Construction Size Unit / Unidad de Construcción'],
   ['propietario', 'Beneficial Owner / Dueño Beneficiario'],
   ['status', 'Status / Estatus'],
   ['observacionesRaw', 'Notes / Observaciones'],
   ['precioEstimadoUSD', 'Estimated Price USD / Precio Estimado USD'],
+  ['acquisitionDate', 'Acquisition Date / Fecha de Adquisición'],
+  ['acquisitionPriceUSD', 'Acquisition Price USD / Precio de Adquisición USD'],
   ['escrituras', 'Deed Status (Si/No) / Escrituras (Si/No)'],
   ['esEjido', 'Ejido Land / Terreno Ejidal'],
   ['propEscriturado', 'Titled Name / Nombre Escriturado'],
   ['planLargoPlazo', 'Long-Term Plan / Plan a Largo Plazo'],
+  ['ownershipPct', 'Ownership % / % de Propiedad'],
+  ['liensNotes', 'Liens / Gravámenes'],
+  ['hoaFeeUSD', 'HOA Fee USD per month / Cuota de Mantenimiento USD por mes'],
+  ['documentsUrl', 'Documents / Documentos'],
+  ['folioReal', 'Folio Real'],
+  ['claveCatastral', 'Clave Catastral'],
+  ['cuentaPredial', 'Cuenta Predial'],
+  ['usoDeSuelo', 'Land Use / Uso de Suelo'],
+  ['notario', 'Notary Public / Notario Público'],
   ['pin', 'Parcel PIN'],
+  ['county', 'County / Condado'],
+  ['titlePolicyInfo', 'Title Policy / Póliza de Título'],
+  ['legalDescription', 'Legal Description / Descripción Legal'],
   ['archived', 'Archived / Archivado'],
   ['mapsLink', 'Google Maps']
 ];
@@ -832,6 +915,11 @@ var SEED_DEFAULTS_ = {
   propietario: '', direccion2: '', cp: '', observacionesRaw: '', escrituras: 'No', esEjido: false, propEscriturado: '',
   propuestaTraspaso: '', planLargoPlazo: 'mantener_individual', pin: '', lat: '', lng: '',
   precioEstimadoIsPlaceholder: false,
+  lotSizeValue: '', lotSizeUnit: '', constructionSizeValue: '', constructionSizeUnit: '',
+  acquisitionDate: '', acquisitionPriceUSD: '',
+  ownershipPct: '', liensNotes: '', hoaFeeUSD: '', documentsUrl: '',
+  folioReal: '', claveCatastral: '', cuentaPredial: '', usoDeSuelo: '', notario: '',
+  county: '', titlePolicyInfo: '', legalDescription: '',
   aiResearchEN: '', aiResearchES: '', aiValueEstimateEN: '', aiValueEstimateES: '',
   archived: false, archivedReason: ''
 };

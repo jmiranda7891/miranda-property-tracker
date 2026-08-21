@@ -287,6 +287,82 @@ module.exports = async function run(t) {
     await page.close();
   }
 
+  t.group('tracking fields (lot/construction size, acquisition basis, ownership/legal, registry IDs) - v1.8');
+  {
+    const page = await browser.newPage();
+    t.watch(page);
+    const url = writePage('client-tracking.html', buildPage({ apiSource: apiSourceFor('admin') }));
+    await page.goto(url);
+    await page.waitForTimeout(150);
+
+    // Casa Test (p1) is MX + tipo Casa: both lot and construction size rows show, and the
+    // registry section shown is the Mexico one, not USA - this is also the regression check
+    // for the bug where "USA - Parcel" used to render unconditionally regardless of country.
+    await page.click('button:has-text("Agregar propiedad"), button:has-text("Add property")');
+    await page.waitForTimeout(50);
+    t.check('a new property (defaults to MX) shows lot size and construction size fields', (await page.locator('#f_lotSizeValue').count()) === 1 && (await page.locator('#f_constructionSizeValue').count()) === 1);
+    t.check('a new property (defaults to MX) shows the Mexico registry fields, not USA', (await page.locator('#f_folioReal').count()) === 1 && (await page.locator('#f_county').count()) === 0);
+
+    // Switching Tipo to Terreno hides construction size (a lot has no construction); switching
+    // to Departamento hides lot size (a condo unit has no exclusive lot).
+    await page.selectOption('#f_tipo', 'Terreno');
+    await page.waitForTimeout(50);
+    t.check('switching Tipo to Terreno hides construction size but keeps lot size', (await page.locator('#f_constructionSizeValue').count()) === 0 && (await page.locator('#f_lotSizeValue').count()) === 1);
+    await page.selectOption('#f_tipo', 'Departamento');
+    await page.waitForTimeout(50);
+    t.check('switching Tipo to Departamento hides lot size but keeps construction size', (await page.locator('#f_lotSizeValue').count()) === 0 && (await page.locator('#f_constructionSizeValue').count()) === 1);
+    await page.selectOption('#f_tipo', 'Casa');
+    await page.waitForTimeout(50);
+
+    // Switching Country to US swaps the registry section live, without needing to save/reopen.
+    await page.fill('#f_referencia', 'Reflow Test Ref');
+    await page.selectOption('#f_countryCode', 'US');
+    await page.waitForTimeout(50);
+    t.check('switching Country to USA swaps in the USA registry fields', (await page.locator('#f_county').count()) === 1 && (await page.locator('#f_folioReal').count()) === 0);
+    t.check('switching Country does not lose a value already typed in another field', await page.locator('#f_referencia').inputValue() === 'Reflow Test Ref');
+    await page.selectOption('#f_countryCode', 'MX');
+    await page.waitForTimeout(50);
+    t.check('switching Country back to Mexico restores the Mexico registry fields', (await page.locator('#f_folioReal').count()) === 1 && (await page.locator('#f_county').count()) === 0);
+    await page.click('button:has-text("Cancelar"), button:has-text("Cancel")');
+
+    // US Test (p2) has no tracking-field data in the fixture, so this exercises rendering with
+    // everything blank (should not throw / show "null" text) plus a documentsUrl link.
+    await page.click('.prop-card >> nth=1');
+    await page.waitForTimeout(50);
+    await page.click('button:has-text("Editar"), button:has-text("Edit")');
+    await page.waitForTimeout(50);
+    t.check('editing an existing USA property shows its own USA registry fields, not Mexico\'s', (await page.locator('#f_county').count()) === 1 && (await page.locator('#f_folioReal').count()) === 0);
+    await page.close();
+  }
+
+  t.group('documentsUrl link (safe scheme allowlist)');
+  {
+    const withDocsUrl = SAMPLE_PROPS.map((p, i) => i === 0
+      ? Object.assign({}, p, { documentsUrl: 'https://drive.google.com/folder/abc' })
+      : Object.assign({}, p, { documentsUrl: 'javascript:alert(1)' }));
+    const docsApiSource = `
+      var SAMPLE_PROPS = ${JSON.stringify(withDocsUrl)};
+      var API = { getBootstrap: function () { return { email: 'admin@example.com', role: 'admin', build: 'v1', properties: SAMPLE_PROPS }; } };
+    `;
+    const page = await browser.newPage();
+    t.watch(page);
+    const url = writePage('client-docs-url.html', buildPage({ apiSource: docsApiSource }));
+    await page.goto(url);
+    await page.waitForTimeout(150);
+
+    await page.click('.prop-card >> nth=0');
+    await page.waitForTimeout(50);
+    const goodHref = await page.locator('a:has-text("Documentos"), a:has-text("Documents")').getAttribute('href');
+    t.check('a genuine https:// documentsUrl renders as a clickable link', goodHref === 'https://drive.google.com/folder/abc', goodHref);
+    await page.click('.modal-close');
+
+    await page.click('.prop-card >> nth=1');
+    await page.waitForTimeout(50);
+    const badLinkCount = await page.locator('a:has-text("Documentos"), a:has-text("Documents")').count();
+    t.check('a javascript: documentsUrl is never rendered as a clickable link', badLinkCount === 0);
+    await page.close();
+  }
+
   t.group('map view (fake Leaflet - verifies initMap()\'s own logic, not the real CDN)');
   {
     const page = await browser.newPage();

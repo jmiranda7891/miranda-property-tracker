@@ -32,6 +32,16 @@
       pinsColMethod: 'Method', pinsColStatus: 'Geocoder status', pinsColQuery: 'Query sent', pinsColCoords: 'Before → after',
       pinsAddressAttemptFailed: 'Address attempt failed',
       minLabel: 'Min', maxLabel: 'Max', clearColumnFilters: 'Clear column filters',
+      sectionPhysical: 'Physical Facts', unitLabel: 'Unit',
+      lotSize: 'Lot size', constructionSize: 'Construction size',
+      unitM2: 'm²', unitHectares: 'hectares', unitSqft: 'sq ft', unitAcres: 'acres',
+      acquisitionDate: 'Acquisition date', acquisitionPrice: 'Acquisition price (USD)',
+      ownershipPct: 'Ownership %', liensNotes: 'Liens / encumbrances', hoaFee: 'HOA fee (USD/mo)',
+      documentsUrl: 'Linked documents (URL)', openDocuments: 'Open documents',
+      registryMx: 'Registry Info (Mexico)', registryUsa: 'Registry Info (USA)',
+      folioReal: 'Folio Real', claveCatastral: 'Clave Catastral', cuentaPredial: 'Cuenta Predial',
+      usoDeSuelo: 'Land Use (Uso de Suelo)', notario: 'Notary Public',
+      county: 'County', titlePolicyInfo: 'Title company / policy #', legalDescription: 'Legal description',
       planMantener: 'Keep Individual', planFideicomiso: 'Transfer to Trust', planVender: 'Sell',
       yesWord: 'Yes', noWord: 'No',
       archivedYes: 'Archived', archivedBadge: 'ARCHIVED',
@@ -76,6 +86,16 @@
       pinsColMethod: 'Método', pinsColStatus: 'Estado del geocodificador', pinsColQuery: 'Consulta enviada', pinsColCoords: 'Antes → después',
       pinsAddressAttemptFailed: 'Falló el intento con la dirección',
       minLabel: 'Mín', maxLabel: 'Máx', clearColumnFilters: 'Quitar filtros de columna',
+      sectionPhysical: 'Datos Físicos', unitLabel: 'Unidad',
+      lotSize: 'Tamaño del terreno', constructionSize: 'Tamaño de construcción',
+      unitM2: 'm²', unitHectares: 'hectáreas', unitSqft: 'pies²', unitAcres: 'acres',
+      acquisitionDate: 'Fecha de adquisición', acquisitionPrice: 'Precio de adquisición (USD)',
+      ownershipPct: '% de propiedad', liensNotes: 'Gravámenes', hoaFee: 'Cuota de mantenimiento (USD/mes)',
+      documentsUrl: 'Documentos vinculados (URL)', openDocuments: 'Abrir documentos',
+      registryMx: 'Datos de Registro (México)', registryUsa: 'Datos de Registro (EE. UU.)',
+      folioReal: 'Folio Real', claveCatastral: 'Clave Catastral', cuentaPredial: 'Cuenta Predial',
+      usoDeSuelo: 'Uso de Suelo', notario: 'Notario Público',
+      county: 'Condado', titlePolicyInfo: 'Compañía de título / póliza #', legalDescription: 'Descripción legal',
       planMantener: 'Mantener Individual', planFideicomiso: 'Traspasar a Fideicomiso', planVender: 'Vender',
       yesWord: 'Sí', noWord: 'No',
       archivedYes: 'Archivada', archivedBadge: 'ARCHIVADA',
@@ -511,9 +531,16 @@
       (p.lat != null && p.lng != null ? kv(t('mapPin'), p.lat.toFixed(5) + ', ' + p.lng.toFixed(5)) : '') +
       '<a class="maps-link" target="_blank" href="' + mapsLink(p) + '">📍 ' + esc(t('openInMaps')) + '</a>' +
       '</div>' +
+      (p.lotSizeValue != null || p.constructionSizeValue != null
+        ? '<div class="field-group"><h4>' + esc(t('sectionPhysical')) + '</h4>' +
+          (p.lotSizeValue != null ? kv(t('lotSize'), p.lotSizeValue + ' ' + sizeUnitLabel(p.lotSizeUnit)) : '') +
+          (p.constructionSizeValue != null ? kv(t('constructionSize'), p.constructionSizeValue + ' ' + sizeUnitLabel(p.constructionSizeUnit)) : '') +
+          '</div>'
+        : '') +
       '<div class="field-group"><h4>' + esc(t('statusValue')) + '</h4>' +
       kv(t('estimatedPrice'), fmtMoney(p.precioEstimadoUSD)) +
       (p.precioEstimadoIsPlaceholder ? '<div class="flag">⚠ ' + esc(t('priceIsPlaceholder')) + '</div>' : '') +
+      kv(t('acquisitionDate'), p.acquisitionDate) + kv(t('acquisitionPrice'), p.acquisitionPriceUSD != null ? fmtMoney(p.acquisitionPriceUSD) : '') +
       (p.observacionesRaw ? kv(t('notes'), p.observacionesRaw) : '') +
       '</div>' +
       '<div class="field-group"><h4>' + esc(t('estatePlanning')) + '</h4>' +
@@ -521,8 +548,17 @@
       kv(t('deedStatus'), p.escrituras === 'Si' ? t('yesWord') : t('noWord')) +
       kv(t('esEjidoLabel'), p.esEjido ? t('yesWord') : t('noWord')) +
       kv(t('planLargoPlazoLbl'), planLabel(p.planLargoPlazo)) +
+      kv(t('ownershipPct'), p.ownershipPct != null ? p.ownershipPct + '%' : '') +
+      kv(t('liensNotes'), p.liensNotes) +
+      kv(t('hoaFee'), p.hoaFeeUSD != null ? fmtMoney(p.hoaFeeUSD) : '') +
+      (safeUrl_(p.documentsUrl) ? '<a class="maps-link" target="_blank" href="' + esc(safeUrl_(p.documentsUrl)) + '">📄 ' + esc(t('openDocuments')) + '</a>' : '') +
       '</div>' +
-      (us ? '<div class="field-group"><h4>' + esc(t('usaOnly')) + '</h4>' + kv(t('parcelPin'), p.pin) + '</div>' : '') +
+      (us
+        ? '<div class="field-group"><h4>' + esc(t('usaOnly')) + '</h4>' + kv(t('parcelPin'), p.pin) + kv(t('county'), p.county) +
+          kv(t('titlePolicyInfo'), p.titlePolicyInfo) + kv(t('legalDescription'), p.legalDescription) + '</div>'
+        : '<div class="field-group"><h4>' + esc(t('registryMx')) + '</h4>' +
+          kv(t('folioReal'), p.folioReal) + kv(t('claveCatastral'), p.claveCatastral) + kv(t('cuentaPredial'), p.cuentaPredial) +
+          kv(t('usoDeSuelo'), p.usoDeSuelo) + kv(t('notario'), p.notario) + '</div>') +
       (research ? '<div class="field-group"><h4>' + esc(t('research')) + '</h4><div class="prose">' + esc(research) + '</div></div>' : '') +
       (valueEst ? '<div class="field-group"><h4>' + esc(t('valueEstimateLbl')) + '</h4><div class="prose">' + esc(valueEst) + '</div></div>' : '') +
       '<div class="audit-footer">' + esc(t('createdBy')) + ': ' + esc(p.createdBy) + ' · ' + esc(t('updatedBy')) + ': ' + esc(p.updatedBy) + '</div>';
@@ -545,16 +581,42 @@
     return '<div class="field"><label>' + esc(label) + '</label><input id="' + id + '" type="' + type + '" value="' + esc(value == null ? '' : value) + '"' +
       (listId ? ' list="' + listId + '"' : '') + '></div>';
   }
-  function fldSelect(id, label, options, value) {
+  function fldSelect(id, label, options, value, onchange) {
     var opts = options.map(function (o) {
       var v = typeof o === 'string' ? o : o.v, l = typeof o === 'string' ? o : o.l;
       return '<option value="' + esc(v) + '"' + (v === value ? ' selected' : '') + '>' + esc(l) + '</option>';
     }).join('');
-    return '<div class="field"><label>' + esc(label) + '</label><select id="' + id + '">' + opts + '</select></div>';
+    return '<div class="field"><label>' + esc(label) + '</label><select id="' + id + '"' +
+      (onchange ? ' onchange="' + onchange + '"' : '') + '>' + opts + '</select></div>';
   }
   function fldCheckbox(id, label, checked) {
     return '<div class="field"><label>&nbsp;</label>' +
       '<label class="chk" style="margin-top:.45rem"><input type="checkbox" id="' + id + '" ' + (checked ? 'checked' : '') + '> ' + esc(label) + '</label></div>';
+  }
+
+  // Lot size accepts any unit a real deed/survey might use; a building's footprint is never
+  // measured in hectares/acres, so construction size gets a narrower list.
+  function sizeUnitOpts_(kind) {
+    var all = [
+      { v: 'm2', l: t('unitM2') }, { v: 'hectares', l: t('unitHectares') },
+      { v: 'sqft', l: t('unitSqft') }, { v: 'acres', l: t('unitAcres') }
+    ];
+    return kind === 'construction' ? all.filter(function (o) { return o.v === 'm2' || o.v === 'sqft'; }) : all;
+  }
+  function sizeUnitLabel(u) {
+    return u === 'hectares' ? t('unitHectares') : u === 'sqft' ? t('unitSqft') : u === 'acres' ? t('unitAcres') : t('unitM2');
+  }
+  function defaultSizeUnit_(countryCode) { return countryCode === 'US' ? 'sqft' : 'm2'; }
+  // A tipo of Departamento has no exclusive lot (it's a condo unit); a tipo of Terreno has no
+  // construction on it at all. Everything else has both.
+  function tipoNeedsLot_(tipo) { return tipo !== 'Departamento'; }
+  function tipoNeedsConstruction_(tipo) { return tipo !== 'Terreno'; }
+
+  // documentsUrl is free-typed by any authorized user and rendered as a clickable link -
+  // restrict it to http(s) so a javascript: URI typed into the field can never execute.
+  function safeUrl_(u) {
+    u = String(u || '').trim();
+    return /^https?:\/\//i.test(u) ? u : '';
   }
 
   // Names already used across the portfolio, offered as autocomplete on both name fields (a
@@ -572,6 +634,8 @@
 
   function renderFormModal(mode, p) {
     p = p || {};
+    var country = p.countryCode || 'MX';
+    var tipo = p.tipo || 'Casa';
     var statusOpts = STATUSES.map(function (s) { return { v: s, l: statusLabel(s) }; });
     var tipoOpts = TIPOS.map(function (tp) { return { v: tp, l: tp }; });
     var planOpts = [
@@ -579,22 +643,49 @@
       { v: 'fideicomiso', l: t('planFideicomiso') },
       { v: 'vender', l: t('planVender') }
     ];
+
+    var physicalRows = '';
+    if (tipoNeedsLot_(tipo)) {
+      physicalRows += '<div class="field-row">' + fld('f_lotSizeValue', t('lotSize'), p.lotSizeValue, 'number') +
+        fldSelect('f_lotSizeUnit', t('unitLabel'), sizeUnitOpts_('lot'), p.lotSizeUnit || defaultSizeUnit_(country)) + '</div>';
+    }
+    if (tipoNeedsConstruction_(tipo)) {
+      physicalRows += '<div class="field-row">' + fld('f_constructionSizeValue', t('constructionSize'), p.constructionSizeValue, 'number') +
+        fldSelect('f_constructionSizeUnit', t('unitLabel'), sizeUnitOpts_('construction'), p.constructionSizeUnit || defaultSizeUnit_(country)) + '</div>';
+    }
+    var physicalGroup = physicalRows ? '<div class="field-group"><h4>' + esc(t('sectionPhysical')) + '</h4>' + physicalRows + '</div>' : '';
+
+    var registryGroup = country === 'US'
+      ? '<div class="field-group"><h4>' + esc(t('usaOnly')) + '</h4>' +
+        '<div class="field-row">' + fld('f_pin', t('parcelPin'), p.pin) + fld('f_county', t('county'), p.county) + '</div>' +
+        '<div class="field-row">' + fld('f_titlePolicyInfo', t('titlePolicyInfo'), p.titlePolicyInfo) + '</div>' +
+        '<div class="field-row"><div class="field"><label>' + esc(t('legalDescription')) + '</label><textarea id="f_legalDescription">' + esc(p.legalDescription) + '</textarea></div></div>' +
+        '</div>'
+      : '<div class="field-group"><h4>' + esc(t('registryMx')) + '</h4>' +
+        '<div class="field-row">' + fld('f_folioReal', t('folioReal'), p.folioReal) + fld('f_claveCatastral', t('claveCatastral'), p.claveCatastral) + '</div>' +
+        '<div class="field-row">' + fld('f_cuentaPredial', t('cuentaPredial'), p.cuentaPredial) + fld('f_usoDeSuelo', t('usoDeSuelo'), p.usoDeSuelo) + '</div>' +
+        '<div class="field-row">' + fld('f_notario', t('notario'), p.notario) + '</div>' +
+        '</div>';
+
     var body = '' +
       nameDatalist() +
       '<p style="color:var(--text-muted);font-size:.8rem">' + esc(t('requiredNote')) + '</p>' +
       '<div class="field-group"><h4>' + esc(t('identification')) + '</h4>' +
-      '<div class="field-row">' + fld('f_referencia', t('reference'), p.referencia) + fldSelect('f_tipo', t('type'), tipoOpts, p.tipo || 'Casa') + '</div>' +
+      '<div class="field-row">' + fld('f_referencia', t('reference'), p.referencia) +
+      fldSelect('f_tipo', t('type'), tipoOpts, tipo, "MPT.reflowForm('tipo', this.value)") + '</div>' +
       '<div class="field-row">' + fldSelect('f_status', t('status'), statusOpts, p.status || 'libre') + '</div>' +
       '</div>' +
       '<div class="field-group"><h4>' + esc(t('location')) + '</h4>' +
-      '<div class="field-row">' + fldSelect('f_countryCode', t('filterCountry'), [{ v: 'MX', l: t('mexico') }, { v: 'US', l: t('usa') }], p.countryCode || 'MX') + '</div>' +
+      '<div class="field-row">' + fldSelect('f_countryCode', t('filterCountry'), [{ v: 'MX', l: t('mexico') }, { v: 'US', l: t('usa') }], country, "MPT.reflowForm('countryCode', this.value)") + '</div>' +
       '<div class="field-row">' + fld('f_direccion', t('address'), p.direccion) + fld('f_direccion2', t('address2'), p.direccion2) + '</div>' +
       '<div class="field-row">' + fld('f_ciudad', t('city'), p.ciudad) + fld('f_estado', t('state'), p.estado) + fld('f_cp', t('zip'), p.cp) + '</div>' +
       '<div class="field-row">' + fld('f_lat', t('latLabel'), p.lat, 'number') + fld('f_lng', t('lngLabel'), p.lng, 'number') + '</div>' +
       '<p style="color:var(--text-muted);font-size:.75rem">' + esc(t('mapPinHint')) + '</p>' +
       '</div>' +
+      physicalGroup +
       '<div class="field-group"><h4>' + esc(t('statusValue')) + '</h4>' +
       '<div class="field-row">' + fld('f_precioEstimadoUSD', t('estimatedPrice'), p.precioEstimadoUSD, 'number') + '</div>' +
+      '<div class="field-row">' + fld('f_acquisitionDate', t('acquisitionDate'), p.acquisitionDate, 'date') + fld('f_acquisitionPriceUSD', t('acquisitionPrice'), p.acquisitionPriceUSD, 'number') + '</div>' +
       '<div class="field-row"><div class="field"><label>' + esc(t('notes')) + '</label><textarea id="f_observacionesRaw">' + esc(p.observacionesRaw) + '</textarea></div></div>' +
       '</div>' +
       '<div class="field-group"><h4>' + esc(t('estatePlanning')) + '</h4>' +
@@ -602,11 +693,11 @@
       fld('f_propietario', t('owners'), p.propietario, 'text', 'dl_names') + '</div>' +
       '<div class="field-row">' + fldSelect('f_escrituras', t('deedStatus'), [{ v: 'No', l: t('noWord') }, { v: 'Si', l: t('yesWord') }], p.escrituras || 'No') +
       fldCheckbox('f_esEjido', t('esEjidoLabel'), !!p.esEjido) + '</div>' +
-      '<div class="field-row">' + fldSelect('f_planLargoPlazo', t('planLargoPlazoLbl'), planOpts, p.planLargoPlazo || 'mantener_individual') + '</div>' +
+      '<div class="field-row">' + fldSelect('f_planLargoPlazo', t('planLargoPlazoLbl'), planOpts, p.planLargoPlazo || 'mantener_individual') + fld('f_ownershipPct', t('ownershipPct'), p.ownershipPct, 'number') + '</div>' +
+      '<div class="field-row">' + fld('f_hoaFeeUSD', t('hoaFee'), p.hoaFeeUSD, 'number') + fld('f_documentsUrl', t('documentsUrl'), p.documentsUrl) + '</div>' +
+      '<div class="field-row"><div class="field"><label>' + esc(t('liensNotes')) + '</label><textarea id="f_liensNotes">' + esc(p.liensNotes) + '</textarea></div></div>' +
       '</div>' +
-      '<div class="field-group"><h4>' + esc(t('usaOnly')) + '</h4>' +
-      '<div class="field-row">' + fld('f_pin', t('parcelPin'), p.pin) + '</div>' +
-      '</div>';
+      registryGroup;
     var footer = '<button class="btn btn-light" onclick="MPT.closeModal()">' + esc(t('cancel')) + '</button>' +
       '<button class="btn btn-primary" onclick="MPT.submitPropertyForm(\'' + mode + '\'' + (p.id ? ",'" + p.id + "'" : ', null') + ')">' + esc(t('save')) + '</button>';
     return modalHeader(mode === 'edit' ? t('editPropertyTitle') : t('newPropertyTitle')) + '<div class="modal-body">' + body + '</div><div class="modal-footer">' + footer + '</div>';
@@ -618,9 +709,17 @@
     return {
       referencia: v('f_referencia'), tipo: v('f_tipo'), countryCode: v('f_countryCode'), status: v('f_status'),
       propietario: v('f_propietario'), direccion: v('f_direccion'), direccion2: v('f_direccion2'), ciudad: v('f_ciudad'), estado: v('f_estado'), cp: v('f_cp'),
+      lotSizeValue: v('f_lotSizeValue'), lotSizeUnit: v('f_lotSizeUnit'),
+      constructionSizeValue: v('f_constructionSizeValue'), constructionSizeUnit: v('f_constructionSizeUnit'),
       precioEstimadoUSD: v('f_precioEstimadoUSD'), observacionesRaw: v('f_observacionesRaw'),
+      acquisitionDate: v('f_acquisitionDate'), acquisitionPriceUSD: v('f_acquisitionPriceUSD'),
       escrituras: v('f_escrituras'), esEjido: checked('f_esEjido'), propEscriturado: v('f_propEscriturado'),
-      planLargoPlazo: v('f_planLargoPlazo'), pin: v('f_pin'), lat: v('f_lat'), lng: v('f_lng')
+      planLargoPlazo: v('f_planLargoPlazo'), ownershipPct: v('f_ownershipPct'), liensNotes: v('f_liensNotes'),
+      hoaFeeUSD: v('f_hoaFeeUSD'), documentsUrl: v('f_documentsUrl'),
+      folioReal: v('f_folioReal'), claveCatastral: v('f_claveCatastral'), cuentaPredial: v('f_cuentaPredial'),
+      usoDeSuelo: v('f_usoDeSuelo'), notario: v('f_notario'),
+      pin: v('f_pin'), county: v('f_county'), titlePolicyInfo: v('f_titlePolicyInfo'), legalDescription: v('f_legalDescription'),
+      lat: v('f_lat'), lng: v('f_lng')
     };
   }
 
@@ -760,6 +859,19 @@
     var p = STATE.properties.filter(function (x) { return x.id === id; })[0];
     if (!p) return;
     STATE.modal = { type: 'form', mode: 'edit', prop: p };
+    render();
+  };
+
+  // Redraws the open add/edit form after the Country or Tipo dropdown changes, so sections
+  // that depend on either (the MX/USA registry group, the lot/construction size rows) reflow
+  // immediately - reading back whatever's already been typed via readForm() first so nothing
+  // the user filled in elsewhere is lost.
+  MPT.reflowForm = function (key, val) {
+    var m = STATE.modal;
+    if (!m || m.type !== 'form') return;
+    var form = readForm();
+    form[key] = val;
+    m.prop = Object.assign({}, m.prop, form);
     render();
   };
 
