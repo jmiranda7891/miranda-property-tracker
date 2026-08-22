@@ -318,7 +318,7 @@
       '</select>' +
       '<select onchange="MPT.setFilter(\'status\', this.value)"><option value="">' + esc(t('filterStatus')) + ': ' + esc(t('all')) + '</option>' + statusOpts + '</select>' +
       '<select onchange="MPT.setFilter(\'tipo\', this.value)"><option value="">' + esc(t('filterType')) + ': ' + esc(t('all')) + '</option>' + tipoOpts + '</select>' +
-      '<input type="text" placeholder="' + esc(t('filterSearchPlaceholder')) + '" value="' + esc(f.q) + '" oninput="MPT.setFilter(\'q\', this.value)">' +
+      '<input type="text" id="f_search" placeholder="' + esc(t('filterSearchPlaceholder')) + '" value="' + esc(f.q) + '" oninput="MPT.setFilter(\'q\', this.value)">' +
       '<label class="chk"><input type="checkbox" ' + (f.showArchived ? 'checked' : '') + ' onchange="MPT.setFilter(\'showArchived\', this.checked)"> ' + esc(t('showArchived')) + '</label>' +
       '</div>';
   }

@@ -116,6 +116,18 @@ module.exports = async function run(t) {
     t.check('filtering by country narrows the list', filteredCount === 1, 'got ' + filteredCount);
     await page.selectOption('.filter-bar select >> nth=0', '');
     await page.waitForTimeout(50);
+
+    // Regression: render() rebuilds the whole #app innerHTML on every keystroke (needed so the
+    // filtered list updates live) - without id-based focus restoration, that blurs the search
+    // box after each character, so only the FIRST typed character ever lands and every
+    // subsequent one needs a fresh click. page.type() sends real per-character key events,
+    // unlike page.fill() (which sets the whole value in one shot and would never catch this).
+    await page.click('.filter-bar input[type="text"]');
+    await page.type('.filter-bar input[type="text"]', 'casa', { delay: 30 });
+    await page.waitForTimeout(50);
+    const searchValue = await page.locator('.filter-bar input[type="text"]').inputValue();
+    t.check('typing multiple characters into the search box does not lose focus after each keystroke',
+      searchValue === 'casa', searchValue);
     await page.close();
   }
 
